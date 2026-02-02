@@ -3,13 +3,17 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -79,9 +83,14 @@ func main() {
 		saveConfig()
 	}
 
-	// Parse templates
+	// Parse templates with custom functions
+	funcMap := template.FuncMap{
+		"normalizeFont": func(fontName string) string {
+			return strings.ReplaceAll(fontName, " ", "-")
+		},
+	}
 	var err error
-	templates, err = template.ParseFS(embeddedFS, "templates/*.html")
+	templates, err = template.New("").Funcs(funcMap).ParseFS(embeddedFS, "templates/*.html")
 	if err != nil {
 		log.Fatalf("Failed to parse templates: %v", err)
 	}
@@ -106,6 +115,7 @@ func main() {
 	// API endpoints
 	mux.HandleFunc("/api/config", handleAPIConfig)
 	mux.HandleFunc("/api/widget/uptime-kuma", handleUptimeKumaProxy)
+	mux.HandleFunc("/api/fonts/clear", handleClearFonts)
 
 	// Get port from environment or default to 8080
 	port := os.Getenv("PORT")
@@ -166,6 +176,13 @@ func reloadConfig() error {
 	var newConfig Config
 	if err := yaml.Unmarshal(data, &newConfig); err != nil {
 		return err
+	}
+
+	// Download Google Font if needed
+	if newConfig.Theme.FontFamily != "" {
+		if err := downloadGoogleFont(newConfig.Theme.FontFamily); err != nil {
+			log.Printf("Warning: Failed to download font '%s': %v", newConfig.Theme.FontFamily, err)
+		}
 	}
 
 	// Apply the new config
@@ -382,7 +399,27 @@ func handleUptimeKumaProxy(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(statusData)
 }
 
-// downloadGoogleFont downloads a Google Font and saves it locally
+func handleClearFonts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Delete the fonts directory
+	fontsDir := "./fonts"
+	if err := os.RemoveAll(fontsDir); err != nil {
+		log.Printf("Failed to clear fonts: %v", err)
+		http.Error(w, "Failed to clear fonts", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✓ All custom fonts cleared")
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// downloadGoogleFont downloads a Google Font and saves it locally with offline font files
 func downloadGoogleFont(fontName string) error {
 	if fontName == "" || isPredefinedFont(fontName) {
 		return nil // No download needed for predefined fonts
@@ -394,8 +431,11 @@ func downloadGoogleFont(fontName string) error {
 		return err
 	}
 
+	// Normalize the filename (replace spaces with hyphens for valid URLs)
+	normalizedName := strings.ReplaceAll(fontName, " ", "-")
+
 	// Check if font already exists
-	fontPath := filepath.Join(fontsDir, fontName+".css")
+	fontPath := filepath.Join(fontsDir, normalizedName+".css")
 	if _, err := os.Stat(fontPath); err == nil {
 		log.Printf("Font '%s' already downloaded", fontName)
 		return nil // Font already exists
@@ -403,15 +443,24 @@ func downloadGoogleFont(fontName string) error {
 
 	// Fetch font CSS from Google Fonts API
 	// Use multiple weights for better coverage
-	url := "https://fonts.googleapis.com/css2?family=" + fontName + ":wght@300;400;500;600;700&display=swap"
-	resp, err := http.Get(url)
+	// Important: Use a User-Agent header to get woff2 format URLs
+	// URL-encode the font name to handle spaces and special characters
+	encodedFontName := url.QueryEscape(fontName)
+	fontURL := "https://fonts.googleapis.com/css2?family=" + encodedFontName + ":wght@300;400;500;600;700&display=swap"
+	req, err := http.NewRequest("GET", fontURL, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil // Font might not exist, skip silently
+		return fmt.Errorf("font not found: HTTP %d (check font name spelling)", resp.StatusCode)
 	}
 
 	// Read CSS content
@@ -419,14 +468,87 @@ func downloadGoogleFont(fontName string) error {
 	if err != nil {
 		return err
 	}
+	cssContent := string(cssBytes)
 
-	// Save CSS file
-	if err := os.WriteFile(fontPath, cssBytes, 0644); err != nil {
+	// Download all font files referenced in the CSS and replace URLs
+	modifiedCSS, err := downloadFontFilesAndUpdateCSS(cssContent, normalizedName, fontsDir)
+	if err != nil {
+		log.Printf("Warning: Failed to download font files for '%s': %v", fontName, err)
+		// Still save the original CSS as fallback
+		modifiedCSS = cssContent
+	}
+
+	// Save modified CSS file
+	if err := os.WriteFile(fontPath, []byte(modifiedCSS), 0644); err != nil {
 		return err
 	}
 
 	log.Printf("✓ Downloaded Google Font: %s", fontName)
 	return nil
+}
+
+// downloadFontFilesAndUpdateCSS downloads font files and updates CSS to reference local copies
+func downloadFontFilesAndUpdateCSS(cssContent, fontName, fontsDir string) (string, error) {
+	// Regex to find url(...) in CSS
+	// Matches: url(https://fonts.gstatic.com/...)
+	urlRegex := `url\((https://[^)]+)\)`
+	re := regexp.MustCompile(urlRegex)
+
+	matches := re.FindAllStringSubmatch(cssContent, -1)
+	if len(matches) == 0 {
+		return cssContent, nil // No URLs found
+	}
+
+	modifiedCSS := cssContent
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+
+		fontFileURL := match[1]
+
+		// Extract filename from URL
+		urlParts := filepath.Base(fontFileURL)
+		// Create a safe filename
+		fontFileName := fontName + "_" + urlParts
+		fontFilePath := filepath.Join(fontsDir, fontFileName)
+
+		// Download the font file if it doesn't exist
+		if _, err := os.Stat(fontFilePath); os.IsNotExist(err) {
+			if err := downloadFile(fontFileURL, fontFilePath); err != nil {
+				log.Printf("Warning: Failed to download font file %s: %v", fontFileURL, err)
+				continue
+			}
+		}
+
+		// Replace the Google URL with local path
+		localURL := "/fonts/" + fontFileName
+		modifiedCSS = strings.Replace(modifiedCSS, fontFileURL, localURL, 1)
+	}
+
+	return modifiedCSS, nil
+}
+
+// downloadFile downloads a file from a URL and saves it locally
+func downloadFile(url, filepath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
 // isPredefinedFont checks if a font is one of the predefined web-safe fonts

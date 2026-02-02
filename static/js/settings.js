@@ -402,7 +402,7 @@ function yamlToConfig(yaml) {
 // Save configuration
 async function saveConfig() {
     const statusEl = document.getElementById('save-status');
-    
+
     // Update config from form fields
     currentConfig.title = document.getElementById('title').value;
     currentConfig.subtitle = document.getElementById('subtitle').value;
@@ -411,7 +411,15 @@ async function saveConfig() {
     const fontSelect = document.getElementById('fontFamily');
     const customFont = document.getElementById('customFont');
     let fontFamily = fontSelect.value;
-    if (fontSelect.value === 'custom' && customFont.value.trim()) {
+
+    // Validation: if "custom" is selected, custom font field must not be blank
+    if (fontSelect.value === 'custom') {
+        if (!customFont.value.trim()) {
+            statusEl.textContent = '✗ Please enter a custom font name or select a different font';
+            statusEl.style.color = '#e74c3c';
+            customFont.focus();
+            return;
+        }
         fontFamily = customFont.value.trim();
     }
 
@@ -440,6 +448,61 @@ async function saveConfig() {
     } catch (error) {
         statusEl.textContent = '✗ Save failed';
         statusEl.style.color = '#e74c3c';
+        console.error('Save error:', error);
+    }
+}
+
+// Clear all custom fonts
+async function clearFonts() {
+    const statusEl = document.getElementById('clear-fonts-status');
+
+    if (!confirm('This will delete all downloaded custom fonts and reset to system default. Continue?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/fonts/clear', {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // Reset font selection to system
+            const fontSelect = document.getElementById('fontFamily');
+            const customFont = document.getElementById('customFont');
+
+            fontSelect.value = 'system';
+            customFont.value = '';
+            customFont.disabled = true;
+
+            // Update current config
+            currentConfig.theme.font_family = 'system';
+            updateYamlEditor();
+
+            // Save the updated config
+            await saveConfigSilently();
+
+            statusEl.textContent = '✓ Fonts cleared';
+            statusEl.style.color = '#2ecc71';
+            setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        } else {
+            throw new Error('Clear failed');
+        }
+    } catch (error) {
+        statusEl.textContent = '✗ Clear failed';
+        statusEl.style.color = '#e74c3c';
+        console.error('Clear fonts error:', error);
+    }
+}
+
+// Save config silently (without UI feedback)
+async function saveConfigSilently() {
+    try {
+        await fetch('/api/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentConfig)
+        });
+    } catch (error) {
         console.error('Save error:', error);
     }
 }

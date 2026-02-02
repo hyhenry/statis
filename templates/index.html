@@ -12,7 +12,7 @@
 
     {{if and .Theme.FontFamily (ne .Theme.FontFamily "system") (ne .Theme.FontFamily "Arial") (ne .Theme.FontFamily "Helvetica") (ne .Theme.FontFamily "Georgia") (ne .Theme.FontFamily "Times New Roman") (ne .Theme.FontFamily "Courier New") (ne .Theme.FontFamily "Verdana") (ne .Theme.FontFamily "Trebuchet MS") (ne .Theme.FontFamily "Impact")}}
     <!-- Google Font -->
-    <link rel="stylesheet" href="/fonts/{{.Theme.FontFamily}}.css">
+    <link rel="stylesheet" href="/fonts/{{normalizeFont .Theme.FontFamily}}.css">
     {{end}}
 
     <style>
