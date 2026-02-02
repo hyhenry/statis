@@ -55,6 +55,12 @@ body {
     margin-bottom: 3rem;
 }
 
+/* Fix for grid alignment - remove left margin from 1st, 4th, 7th cards (3 per row) */
+.services-section .row .four.columns:nth-child(3n+1) {
+    margin-left: 0;
+    clear: left;
+}
+
 .service-card {
     display: flex;
     align-items: center;

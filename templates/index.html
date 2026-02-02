@@ -50,8 +50,8 @@
 
         <!-- Two Column Layout -->
         <div class="row">
-            <!-- Left Column: Widgets (1/3 width) -->
-            <div class="four columns">
+            <!-- Left Column: Widgets (1/4 width) -->
+            <div class="three columns">
                 {{if .Widgets}}
                 <section class="widgets-section">
                     {{range .Widgets}}
@@ -66,14 +66,14 @@
                 {{end}}
             </div>
 
-            <!-- Right Column: Services (2/3 width) -->
-            <div class="eight columns">
+            <!-- Right Column: Services (3/4 width) -->
+            <div class="nine columns">
                 {{range .Services}}
                 <section class="services-section">
                     <h4 class="section-title">{{.Name}}</h4>
                     <div class="row">
                         {{range .Items}}
-                        <div class="six columns">
+                        <div class="four columns">
                             <a href="{{.URL}}" class="service-card" target="{{if .Target}}{{.Target}}{{else}}_blank{{end}}" rel="noopener noreferrer">
                                 <div class="service-icon">
                                     {{if .Icon}}
