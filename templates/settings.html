@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - {{.Title}}</title>
+    
+    <!-- Skeleton CSS -->
+    <link rel="stylesheet" href="/static/css/normalize.css">
+    <link rel="stylesheet" href="/static/css/skeleton.css">
+    <link rel="stylesheet" href="/static/css/custom.css">
+    
+    <style>
+        :root {
+            --primary-color: {{.Theme.PrimaryColor}};
+            --bg-color: {{.Theme.BackgroundColor}};
+            --card-color: {{.Theme.CardColor}};
+            --text-color: {{.Theme.TextColor}};
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="row">
+                <div class="twelve columns">
+                    <a href="/" class="back-link">← Back to Dashboard</a>
+                    <h1 class="title">Settings</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- Settings Form -->
+        <section class="settings-section">
+            <div class="row">
+                <div class="twelve columns">
+                    <!-- General Settings -->
+                    <div class="settings-card">
+                        <h4>General</h4>
+                        <div class="row">
+                            <div class="six columns">
+                                <label for="title">Dashboard Title</label>
+                                <input class="u-full-width" type="text" id="title" value="{{.Title}}">
+                            </div>
+                            <div class="six columns">
+                                <label for="subtitle">Subtitle</label>
+                                <input class="u-full-width" type="text" id="subtitle" value="{{.Subtitle}}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Theme Settings -->
+                    <div class="settings-card">
+                        <h4>Theme</h4>
+                        <div class="row">
+                            <div class="three columns">
+                                <label for="primaryColor">Primary Color</label>
+                                <input class="u-full-width" type="color" id="primaryColor" value="{{.Theme.PrimaryColor}}">
+                            </div>
+                            <div class="three columns">
+                                <label for="bgColor">Background</label>
+                                <input class="u-full-width" type="color" id="bgColor" value="{{.Theme.BackgroundColor}}">
+                            </div>
+                            <div class="three columns">
+                                <label for="cardColor">Card Color</label>
+                                <input class="u-full-width" type="color" id="cardColor" value="{{.Theme.CardColor}}">
+                            </div>
+                            <div class="three columns">
+                                <label for="textColor">Text Color</label>
+                                <input class="u-full-width" type="color" id="textColor" value="{{.Theme.TextColor}}">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="six columns">
+                                <label for="fontFamily">Font Family</label>
+                                <select class="u-full-width" id="fontFamily">
+                                    <option value="system" {{if eq .Theme.FontFamily "system"}}selected{{end}}>System Default</option>
+                                    <option value="Arial" {{if eq .Theme.FontFamily "Arial"}}selected{{end}}>Arial</option>
+                                    <option value="Helvetica" {{if eq .Theme.FontFamily "Helvetica"}}selected{{end}}>Helvetica</option>
+                                    <option value="Georgia" {{if eq .Theme.FontFamily "Georgia"}}selected{{end}}>Georgia</option>
+                                    <option value="Times New Roman" {{if eq .Theme.FontFamily "Times New Roman"}}selected{{end}}>Times New Roman</option>
+                                    <option value="Courier New" {{if eq .Theme.FontFamily "Courier New"}}selected{{end}}>Courier New</option>
+                                    <option value="Verdana" {{if eq .Theme.FontFamily "Verdana"}}selected{{end}}>Verdana</option>
+                                    <option value="Trebuchet MS" {{if eq .Theme.FontFamily "Trebuchet MS"}}selected{{end}}>Trebuchet MS</option>
+                                    <option value="Impact" {{if eq .Theme.FontFamily "Impact"}}selected{{end}}>Impact</option>
+                                    <option value="custom">Custom Google Font...</option>
+                                </select>
+                                <p class="help-text">Choose a web-safe font or use a custom Google Font</p>
+                            </div>
+                            <div class="six columns">
+                                <label for="customFont">Custom Google Font</label>
+                                <input class="u-full-width" type="text" id="customFont" placeholder="Enter Google Font name (e.g., Roboto, Inter)">
+                                <p class="help-text">Font will be downloaded and saved for offline use</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Services Editor -->
+                    <div class="settings-card">
+                        <h4>Services</h4>
+                        <div id="services-editor">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                        <button class="button" onclick="addSection()">+ Add Section</button>
+                    </div>
+
+                    <!-- Widgets Editor -->
+                    <div class="settings-card">
+                        <h4>Widgets</h4>
+                        <div id="widgets-editor">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                        <button class="button" onclick="addWidget()">+ Add Widget</button>
+                    </div>
+
+                    <!-- YAML Editor -->
+                    <div class="settings-card">
+                        <h4>Raw YAML Configuration</h4>
+                        <p class="help-text">Advanced: Edit the raw YAML configuration directly</p>
+                        <textarea class="u-full-width yaml-editor" id="yamlEditor" rows="20"></textarea>
+                        <button class="button" onclick="loadFromYaml()">Load from YAML</button>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="row" style="margin-top: 2rem;">
+                        <div class="twelve columns">
+                            <button class="button button-primary" onclick="saveConfig()">💾 Save Configuration</button>
+                            <span id="save-status"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/js/settings.js"></script>
+</body>
+</html>

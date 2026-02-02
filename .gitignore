@@ -1,0 +1,62 @@
+# Compiled binary
+homelab-dash
+
+# User configuration (contains personal homelab URLs and settings)
+config.yaml
+
+# Downloaded Google Fonts (regenerated at runtime)
+fonts/
+
+# Claude Code project files
+.claude/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Go test coverage
+*.coverprofile
+coverage.html
+
+# Dependency directories
+vendor/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS-specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp

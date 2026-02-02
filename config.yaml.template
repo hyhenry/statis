@@ -1,0 +1,149 @@
+# Homelab Dashboard Configuration Template
+# Copy this file to config.yaml and customize for your setup
+
+title: Home Lab
+subtitle: Welcome home
+
+theme:
+  primary_color: '#33c3f0'       # Accent color for titles and links
+  background_color: '#1a1a2e'    # Page background
+  card_color: '#16213e'          # Service card background
+  text_color: '#eaeaea'          # Main text color
+  font_family: system            # Options: system, Arial, Helvetica, Georgia, Times New Roman, Courier New, Verdana, Trebuchet MS, Impact, or any Google Font name
+
+services:
+  - name: Infrastructure
+    items:
+      - name: Proxmox
+        url: https://proxmox.local:8006
+        icon: ""                 # Optional: URL to custom icon image
+        icon_text: "🖥️"         # Emoji icon (used if icon is empty)
+        description: Hypervisor
+        target: ""               # Optional: _blank, _self, etc.
+
+      - name: TrueNAS
+        url: https://truenas.local
+        icon: ""
+        icon_text: "💾"
+        description: Storage
+        target: ""
+
+      - name: Portainer
+        url: https://portainer.local:9443
+        icon: ""
+        icon_text: "🐳"
+        description: Containers
+        target: ""
+
+      - name: Pi-hole
+        url: https://pihole.local/admin
+        icon: ""
+        icon_text: "🕳️"
+        description: DNS & Ad Blocking
+        target: ""
+
+  - name: Media
+    items:
+      - name: Plex
+        url: https://plex.local:32400
+        icon: ""
+        icon_text: "🎬"
+        description: Media Server
+        target: ""
+
+      - name: Jellyfin
+        url: https://jellyfin.local:8096
+        icon: ""
+        icon_text: "📺"
+        description: Media Server
+        target: ""
+
+      - name: Sonarr
+        url: https://sonarr.local:8989
+        icon: ""
+        icon_text: "📡"
+        description: TV Shows
+        target: ""
+
+      - name: Radarr
+        url: https://radarr.local:7878
+        icon: ""
+        icon_text: "🎥"
+        description: Movies
+        target: ""
+
+  - name: Monitoring
+    items:
+      - name: Uptime Kuma
+        url: https://uptime.local:3001
+        icon: ""
+        icon_text: "📊"
+        description: Status Page
+        target: ""
+
+      - name: Grafana
+        url: https://grafana.local:3000
+        icon: ""
+        icon_text: "📈"
+        description: Dashboards
+        target: ""
+
+      - name: Prometheus
+        url: https://prometheus.local:9090
+        icon: ""
+        icon_text: "🔥"
+        description: Metrics
+        target: ""
+
+  - name: Productivity
+    items:
+      - name: Nextcloud
+        url: https://nextcloud.local
+        icon: ""
+        icon_text: "☁️"
+        description: Files & Sync
+        target: ""
+
+      - name: Gitea
+        url: https://gitea.local:3000
+        icon: ""
+        icon_text: "🦙"
+        description: Git Server
+        target: ""
+
+      - name: Vaultwarden
+        url: https://vault.local
+        icon: ""
+        icon_text: "🔐"
+        description: Password Manager
+        target: ""
+
+widgets:
+  # Clock Widget
+  - type: clock
+    title: Local Time
+    config:
+      format: 24h              # Options: 12h or 24h
+      timezone: local          # Options: local or IANA timezone (e.g., America/New_York, Europe/London)
+
+  # Uptime Kuma Status Widget
+  - type: uptime-kuma
+    title: Server Status
+    config:
+      url: https://uptime.local:3001     # Your Uptime Kuma instance URL
+      slug: servers                       # Status page slug from Uptime Kuma
+      collapsed: "true"                   # Optional: "true" to show collapsed by default
+
+  - type: uptime-kuma
+    title: Service Status
+    config:
+      url: https://uptime.local:3001
+      slug: services
+      collapsed: "true"
+
+  # Iframe Widget (optional - uncomment to use)
+  # - type: iframe
+  #   title: External Content
+  #   config:
+  #     url: https://example.com
+  #     height: 400px           # Optional: custom height

@@ -1,0 +1,487 @@
+/* Custom styles for Homelab Dashboard */
+
+/* Use CSS variables for theming */
+:root {
+    --primary-color: #33C3F0;
+    --bg-color: #1a1a2e;
+    --card-color: #16213e;
+    --text-color: #eaeaea;
+}
+
+/* Base overrides */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1600px;
+    padding: 20px;
+}
+
+/* Header */
+.header {
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.title {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.subtitle {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.4rem;
+    margin: 0;
+}
+
+/* Section titles */
+.section-title {
+    color: var(--primary-color);
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary-color);
+    display: inline-block;
+}
+
+/* Service Cards */
+.services-section {
+    margin-bottom: 3rem;
+}
+
+.service-card {
+    display: flex;
+    align-items: center;
+    background-color: var(--card-color);
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin-bottom: 1.5rem;
+    text-decoration: none;
+    color: var(--text-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.service-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-color);
+}
+
+.service-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.icon-img {
+    max-width: 32px;
+    max-height: 32px;
+    object-fit: contain;
+}
+
+.icon-text {
+    font-size: 24px;
+}
+
+.service-info {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.service-name {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.service-desc {
+    margin: 0.3rem 0 0 0;
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Widgets */
+.widgets-section {
+    margin-bottom: 3rem;
+}
+
+.widget {
+    background-color: var(--card-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.widget.collapsed {
+    padding: 1.2rem;
+}
+
+.widget.collapsed .widget-header {
+    margin-bottom: 0;
+}
+
+.widget-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 0.5rem;
+}
+
+.widget-title {
+    color: var(--primary-color);
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 500;
+}
+
+.widget-toggle {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.2rem 0.5rem;
+    transition: transform 0.2s ease;
+    opacity: 0.7;
+    margin-left: auto;
+}
+
+.widget-toggle:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.widget-toggle.collapsed {
+    transform: rotate(-90deg);
+}
+
+.widget-content {
+    color: var(--text-color);
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+}
+
+.widget.collapsed .widget-content {
+    display: none;
+}
+
+.widget-content .loading {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* Overall Status Indicator (Collapsed State) */
+.overall-status {
+    display: none;
+    align-items: center;
+    padding-left: 1rem;
+}
+
+.widget.collapsed .overall-status {
+    display: flex;
+}
+
+.overall-status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.overall-status-indicator.status-up {
+    background-color: #2ecc71;
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+}
+
+.overall-status-indicator.status-down {
+    background-color: #e74c3c;
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+}
+
+.overall-status-indicator.status-pending {
+    background-color: #f39c12;
+    box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+}
+
+.overall-status-text {
+    margin-left: 0.8rem;
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+}
+
+/* Uptime Kuma Widget Specific */
+.status-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 0.8rem;
+    flex-shrink: 0;
+}
+
+.status-up {
+    background-color: #2ecc71;
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+}
+
+.status-down {
+    background-color: #e74c3c;
+    box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+}
+
+.status-pending {
+    background-color: #f39c12;
+    box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+}
+
+.status-name {
+    flex-grow: 1;
+    font-size: 1.3rem;
+}
+
+.status-uptime {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    padding: 2rem 0;
+    margin-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 1.2rem;
+}
+
+.footer a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+/* Settings Page */
+.settings-section {
+    margin-bottom: 2rem;
+}
+
+.settings-card {
+    background-color: var(--card-color);
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.settings-card h4 {
+    color: var(--primary-color);
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+}
+
+.settings-card label {
+    color: var(--text-color);
+    font-size: 1.3rem;
+}
+
+.settings-card input[type="text"],
+.settings-card input[type="url"],
+.settings-card select,
+.settings-card textarea {
+    background-color: var(--bg-color);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+}
+
+.settings-card input[type="text"]:focus,
+.settings-card input[type="url"]:focus,
+.settings-card select:focus,
+.settings-card textarea:focus {
+    border-color: var(--primary-color);
+}
+
+.settings-card input[type="color"] {
+    padding: 0;
+    height: 40px;
+    cursor: pointer;
+}
+
+.back-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 1.3rem;
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+
+.help-text {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.yaml-editor {
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+    font-size: 1.2rem;
+    background-color: #0d1117;
+    color: #c9d1d9;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    resize: vertical;
+}
+
+/* Service/Widget Editor Items */
+.editor-item {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.editor-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.editor-item-header h5 {
+    margin: 0;
+    color: var(--text-color);
+}
+
+.remove-btn {
+    background-color: #e74c3c;
+    border-color: #e74c3c;
+    color: white;
+    padding: 0 15px;
+    height: 30px;
+    line-height: 28px;
+    font-size: 10px;
+}
+
+.remove-btn:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+    color: white;
+}
+
+.add-item-btn {
+    background-color: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.6);
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.add-item-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Buttons */
+.button {
+    background-color: transparent;
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.button:hover {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.button-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.button-primary:hover {
+    background-color: #1EAEDB;
+    border-color: #1EAEDB;
+}
+
+#save-status {
+    margin-left: 1rem;
+    color: #2ecc71;
+}
+
+/* Responsive adjustments */
+@media (max-width: 550px) {
+    .service-card {
+        padding: 1rem;
+    }
+    
+    .service-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .icon-text {
+        font-size: 20px;
+    }
+    
+    .service-name {
+        font-size: 1.3rem;
+    }
+    
+    .header .button {
+        padding: 0 15px;
+    }
+}
+
+/* Smooth transitions for theme changes */
+* {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
