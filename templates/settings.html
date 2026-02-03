@@ -120,12 +120,11 @@
                         <button class="button" onclick="addWidget()">+ Add Widget</button>
                     </div>
 
-                    <!-- YAML Editor -->
+                    <!-- YAML Editor Button -->
                     <div class="settings-card">
                         <h4>Raw YAML Configuration</h4>
                         <p class="help-text">Advanced: Edit the raw YAML configuration directly</p>
-                        <textarea class="u-full-width yaml-editor" id="yamlEditor" rows="20"></textarea>
-                        <button class="button" onclick="loadFromYaml()">Load from YAML</button>
+                        <button class="button" onclick="openYamlModal()">📝 Edit Raw YAML</button>
                     </div>
 
                     <!-- Save Button -->
@@ -138,6 +137,24 @@
                 </div>
             </div>
         </section>
+    </div>
+
+    <!-- YAML Editor Modal -->
+    <div id="yamlModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Edit Raw YAML Configuration</h4>
+                <button class="modal-close" onclick="closeYamlModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea class="u-full-width yaml-editor" id="yamlEditor" rows="25"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="button" onclick="closeYamlModal()">Cancel</button>
+                <button class="button button-primary" onclick="saveFromYaml()">💾 Save YAML</button>
+                <span id="yaml-save-status"></span>
+            </div>
+        </div>
     </div>
 
     <script src="/static/js/settings.js"></script>

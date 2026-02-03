@@ -8,6 +8,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     renderWidgetsEditor();
     updateYamlEditor();
     initializeFontPicker();
+
+    // Close modal when clicking outside of it
+    document.getElementById('yamlModal')?.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeYamlModal();
+        }
+    });
 });
 
 async function loadConfig() {
@@ -276,28 +283,72 @@ document.getElementById('textColor')?.addEventListener('change', (e) => {
 // YAML editor
 function updateYamlEditor() {
     const yaml = configToYaml(currentConfig);
-    document.getElementById('yamlEditor').value = yaml;
+    const editor = document.getElementById('yamlEditor');
+    if (editor) {
+        editor.value = yaml;
+    }
 }
 
-function loadFromYaml() {
+function openYamlModal() {
+    updateYamlEditor();
+    document.getElementById('yamlModal').classList.add('active');
+}
+
+function closeYamlModal() {
+    document.getElementById('yamlModal').classList.remove('active');
+    document.getElementById('yaml-save-status').textContent = '';
+}
+
+async function saveFromYaml() {
+    const statusEl = document.getElementById('yaml-save-status');
+
     try {
         const yaml = document.getElementById('yamlEditor').value;
-        currentConfig = yamlToConfig(yaml);
-        
-        // Update form fields
-        document.getElementById('title').value = currentConfig.title;
-        document.getElementById('subtitle').value = currentConfig.subtitle;
-        document.getElementById('primaryColor').value = currentConfig.theme.primary_color;
-        document.getElementById('bgColor').value = currentConfig.theme.background_color;
-        document.getElementById('cardColor').value = currentConfig.theme.card_color;
-        document.getElementById('textColor').value = currentConfig.theme.text_color;
-        
-        renderServicesEditor();
-        renderWidgetsEditor();
-        
-        alert('Configuration loaded from YAML');
+        const parsedConfig = yamlToConfig(yaml);
+
+        // Send the parsed config to the server
+        const response = await fetch('/api/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(parsedConfig)
+        });
+
+        if (response.ok) {
+            // Update current config
+            currentConfig = parsedConfig;
+
+            // Update all form fields
+            document.getElementById('title').value = currentConfig.title;
+            document.getElementById('subtitle').value = currentConfig.subtitle;
+            document.getElementById('primaryColor').value = currentConfig.theme.primary_color;
+            document.getElementById('bgColor').value = currentConfig.theme.background_color;
+            document.getElementById('cardColor').value = currentConfig.theme.card_color;
+            document.getElementById('textColor').value = currentConfig.theme.text_color;
+
+            // Update CSS variables
+            document.documentElement.style.setProperty('--primary-color', currentConfig.theme.primary_color);
+            document.documentElement.style.setProperty('--bg-color', currentConfig.theme.background_color);
+            document.documentElement.style.setProperty('--card-color', currentConfig.theme.card_color);
+            document.documentElement.style.setProperty('--text-color', currentConfig.theme.text_color);
+
+            // Re-render editors
+            renderServicesEditor();
+            renderWidgetsEditor();
+
+            statusEl.textContent = '✓ Saved!';
+            statusEl.style.color = '#2ecc71';
+
+            // Close modal after short delay
+            setTimeout(() => {
+                closeYamlModal();
+            }, 1500);
+        } else {
+            throw new Error('Save failed');
+        }
     } catch (error) {
-        alert('Invalid YAML: ' + error.message);
+        statusEl.textContent = '✗ Invalid YAML or save failed: ' + error.message;
+        statusEl.style.color = '#e74c3c';
+        console.error('Save YAML error:', error);
     }
 }
 
@@ -306,13 +357,17 @@ function configToYaml(config) {
     let yaml = '';
     yaml += `title: "${config.title}"\n`;
     yaml += `subtitle: "${config.subtitle}"\n\n`;
-    
+
     yaml += `theme:\n`;
     yaml += `  primary_color: "${config.theme.primary_color}"\n`;
     yaml += `  background_color: "${config.theme.background_color}"\n`;
     yaml += `  card_color: "${config.theme.card_color}"\n`;
-    yaml += `  text_color: "${config.theme.text_color}"\n\n`;
-    
+    yaml += `  text_color: "${config.theme.text_color}"\n`;
+    if (config.theme.font_family) {
+        yaml += `  font_family: "${config.theme.font_family}"\n`;
+    }
+    yaml += `\n`;
+
     yaml += `services:\n`;
     config.services.forEach(section => {
         yaml += `  - name: "${section.name}"\n`;
@@ -325,17 +380,19 @@ function configToYaml(config) {
             if (item.description) yaml += `        description: "${item.description}"\n`;
         });
     });
-    
+
     yaml += `\nwidgets:\n`;
     config.widgets.forEach(widget => {
         yaml += `  - type: "${widget.type}"\n`;
         yaml += `    title: "${widget.title}"\n`;
-        yaml += `    config:\n`;
-        Object.entries(widget.config || {}).forEach(([k, v]) => {
-            yaml += `      ${k}: "${v}"\n`;
-        });
+        if (widget.config && Object.keys(widget.config).length > 0) {
+            yaml += `    config:\n`;
+            Object.entries(widget.config).forEach(([k, v]) => {
+                yaml += `      ${k}: "${v}"\n`;
+            });
+        }
     });
-    
+
     return yaml;
 }
 
@@ -351,52 +408,95 @@ function yamlToConfig(yaml) {
         services: [],
         widgets: []
     };
-    
-    let currentSection = null;
-    let currentItem = null;
+
+    let mode = null; // 'theme', 'services', 'widgets'
+    let currentServiceSection = null;
+    let currentServiceItem = null;
     let currentWidget = null;
-    
+    let inWidgetConfig = false;
+
     lines.forEach(line => {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith('#')) return;
-        
-        const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
-        if (match) {
-            const [, key, value] = match;
-            
-            if (key === 'title') config.title = value;
-            else if (key === 'subtitle') config.subtitle = value;
-            else if (currentWidget && key !== 'type' && key !== 'title') {
-                currentWidget.config[key] = value;
+
+        // Detect sections
+        if (trimmed === 'theme:') {
+            mode = 'theme';
+            return;
+        }
+        if (trimmed === 'services:') {
+            mode = 'services';
+            currentServiceSection = null;
+            currentServiceItem = null;
+            return;
+        }
+        if (trimmed === 'widgets:') {
+            mode = 'widgets';
+            currentWidget = null;
+            return;
+        }
+
+        // Parse based on mode
+        if (mode === null) {
+            // Top-level properties
+            const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
+            if (match) {
+                const [, key, value] = match;
+                if (key === 'title') config.title = value;
+                else if (key === 'subtitle') config.subtitle = value;
             }
-            else if (currentItem) {
-                currentItem[key] = value;
-            }
-            else if (line.startsWith('    ') && currentSection) {
-                currentSection[key] = value;
-            }
-            else if (line.startsWith('  ') && currentSection === null) {
+        } else if (mode === 'theme') {
+            const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
+            if (match) {
+                const [, key, value] = match;
                 config.theme[key] = value;
             }
-        }
-        
-        if (trimmed === 'theme:') currentSection = null;
-        if (trimmed === 'services:') { currentSection = 'services'; currentItem = null; }
-        if (trimmed === 'widgets:') { currentSection = 'widgets'; currentWidget = null; }
-        
-        if (trimmed.startsWith('- name:') && currentSection === 'services') {
-            const name = trimmed.match(/"([^"]*)"/)?.[1] || '';
-            currentItem = { name, items: [] };
-            config.services.push(currentItem);
-        }
-        
-        if (trimmed.startsWith('- type:') && currentSection === 'widgets') {
-            const type = trimmed.match(/"([^"]*)"/)?.[1] || '';
-            currentWidget = { type, title: '', config: {} };
-            config.widgets.push(currentWidget);
+        } else if (mode === 'services') {
+            // Check for service item first (6 spaces) before service section (2 spaces)
+            if (trimmed.startsWith('- name:') && line.startsWith('      ') && !line.startsWith('       ')) {
+                // New service item within section (6 spaces indentation)
+                const name = trimmed.match(/"([^"]*)"/)?.[1] || '';
+                currentServiceItem = { name, url: '', icon: '', icon_text: '', description: '' };
+                if (currentServiceSection) {
+                    currentServiceSection.items.push(currentServiceItem);
+                }
+            } else if (trimmed.startsWith('- name:') && line.startsWith('  ') && !line.startsWith('   ')) {
+                // New service section (2 spaces indentation)
+                const name = trimmed.match(/"([^"]*)"/)?.[1] || '';
+                currentServiceSection = { name, items: [] };
+                config.services.push(currentServiceSection);
+                currentServiceItem = null;
+            } else if (currentServiceItem) {
+                // Properties of service item
+                const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
+                if (match) {
+                    const [, key, value] = match;
+                    currentServiceItem[key] = value;
+                }
+            }
+        } else if (mode === 'widgets') {
+            if (trimmed.startsWith('- type:')) {
+                // New widget
+                const type = trimmed.match(/"([^"]*)"/)?.[1] || '';
+                currentWidget = { type, title: '', config: {} };
+                config.widgets.push(currentWidget);
+                inWidgetConfig = false;
+            } else if (trimmed === 'config:') {
+                inWidgetConfig = true;
+            } else if (currentWidget) {
+                const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
+                if (match) {
+                    const [, key, value] = match;
+                    if (key === 'title') {
+                        currentWidget.title = value;
+                    } else if (inWidgetConfig) {
+                        currentWidget.config[key] = value;
+                    }
+                }
+            }
         }
     });
-    
+
     return config;
 }
 
