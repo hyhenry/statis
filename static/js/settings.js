@@ -120,21 +120,24 @@ function renderServicesEditor() {
 }
 
 function renderItemEditor(sectionIndex, itemIndex, item) {
+    const iconPreview = item.icon
+        ? `<img src="${escapeHtml(item.icon)}" class="icon-preview" alt="icon">`
+        : '';
     return `
         <div class="row" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
             <div class="four columns">
                 <label>Name</label>
-                <input type="text" class="u-full-width" value="${escapeHtml(item.name)}" 
+                <input type="text" class="u-full-width" value="${escapeHtml(item.name)}"
                     onchange="updateItem(${sectionIndex}, ${itemIndex}, 'name', this.value)">
             </div>
             <div class="four columns">
                 <label>URL</label>
-                <input type="url" class="u-full-width" value="${escapeHtml(item.url)}" 
+                <input type="url" class="u-full-width" value="${escapeHtml(item.url)}"
                     onchange="updateItem(${sectionIndex}, ${itemIndex}, 'url', this.value)">
             </div>
             <div class="two columns">
-                <label>Icon (emoji/text)</label>
-                <input type="text" class="u-full-width" value="${escapeHtml(item.icon_text || '')}" 
+                <label>Icon (emoji)</label>
+                <input type="text" class="u-full-width" value="${escapeHtml(item.icon_text || '')}"
                     onchange="updateItem(${sectionIndex}, ${itemIndex}, 'icon_text', this.value)">
             </div>
             <div class="two columns">
@@ -143,13 +146,17 @@ function renderItemEditor(sectionIndex, itemIndex, item) {
             </div>
             <div class="six columns">
                 <label>Description</label>
-                <input type="text" class="u-full-width" value="${escapeHtml(item.description || '')}" 
+                <input type="text" class="u-full-width" value="${escapeHtml(item.description || '')}"
                     onchange="updateItem(${sectionIndex}, ${itemIndex}, 'description', this.value)">
             </div>
             <div class="six columns">
-                <label>Icon URL (optional, overrides emoji)</label>
-                <input type="url" class="u-full-width" value="${escapeHtml(item.icon || '')}" 
-                    onchange="updateItem(${sectionIndex}, ${itemIndex}, 'icon', this.value)">
+                <label>Icon Image</label>
+                <div class="icon-input-group">
+                    ${iconPreview}
+                    <input type="text" id="icon-${sectionIndex}-${itemIndex}" value="${escapeHtml(item.icon || '')}"
+                        onchange="updateItem(${sectionIndex}, ${itemIndex}, 'icon', this.value)" placeholder="Icon path or URL">
+                    <button class="button" onclick="openIconPicker(${sectionIndex}, ${itemIndex})">Browse</button>
+                </div>
             </div>
         </div>
     `;
@@ -375,44 +382,37 @@ async function saveConfig() {
     }
 }
 
-// Clear all custom fonts
-async function clearFonts() {
-    const statusEl = document.getElementById('clear-fonts-status');
+// Clean unused assets (fonts and icons not currently in use)
+async function cleanUnusedAssets() {
+    const statusEl = document.getElementById('save-status');
 
-    if (!confirm('This will delete all downloaded custom fonts and reset to system default. Continue?')) {
+    if (!confirm('This will delete any downloaded fonts and icons that are not currently being used. Continue?')) {
         return;
     }
 
     try {
-        const response = await fetch('/api/fonts/clear', {
+        const response = await fetch('/api/assets/clean-unused', {
             method: 'DELETE'
         });
 
         if (response.ok) {
-            // Reset font selection to system
-            const fontSelect = document.getElementById('fontFamily');
-            const customFont = document.getElementById('customFont');
+            const result = await response.json();
+            const total = result.fonts_removed + result.icons_removed;
 
-            fontSelect.value = 'system';
-            customFont.value = '';
-            customFont.disabled = true;
-
-            // Update current config
-            currentConfig.theme.font_family = 'system';
-        
-            // Save the updated config
-            await saveConfigSilently();
-
-            statusEl.textContent = '✓ Fonts cleared';
+            if (total === 0) {
+                statusEl.textContent = '✓ No unused assets found';
+            } else {
+                statusEl.textContent = `✓ Removed ${result.fonts_removed} fonts, ${result.icons_removed} icons`;
+            }
             statusEl.style.color = '#2ecc71';
-            setTimeout(() => { statusEl.textContent = ''; }, 3000);
+            setTimeout(() => { statusEl.textContent = ''; }, 5000);
         } else {
-            throw new Error('Clear failed');
+            throw new Error('Cleanup failed');
         }
     } catch (error) {
-        statusEl.textContent = '✗ Clear failed';
+        statusEl.textContent = '✗ Cleanup failed';
         statusEl.style.color = '#e74c3c';
-        console.error('Clear fonts error:', error);
+        console.error('Clean unused assets error:', error);
     }
 }
 
@@ -436,3 +436,174 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// Icon Picker
+let iconPickerState = {
+    sectionIndex: null,
+    itemIndex: null,
+    icons: [],
+    searchTimeout: null
+};
+
+function openIconPicker(sectionIndex, itemIndex) {
+    iconPickerState.sectionIndex = sectionIndex;
+    iconPickerState.itemIndex = itemIndex;
+
+    const modal = document.getElementById('icon-picker-modal');
+    modal.style.display = 'block';
+
+    const searchInput = document.getElementById('icon-search');
+    searchInput.value = '';
+    searchInput.focus();
+
+    // Load icons if not already loaded
+    if (iconPickerState.icons.length === 0) {
+        loadIcons();
+    } else {
+        renderIconGrid(iconPickerState.icons);
+    }
+
+    // Setup search with debounce
+    searchInput.oninput = function() {
+        clearTimeout(iconPickerState.searchTimeout);
+        iconPickerState.searchTimeout = setTimeout(() => {
+            searchIcons(this.value);
+        }, 300);
+    };
+}
+
+function closeIconPicker() {
+    const modal = document.getElementById('icon-picker-modal');
+    modal.style.display = 'none';
+    iconPickerState.sectionIndex = null;
+    iconPickerState.itemIndex = null;
+}
+
+async function loadIcons() {
+    const grid = document.getElementById('icon-grid');
+    const countEl = document.getElementById('icon-count');
+
+    grid.innerHTML = '<div class="icon-picker-loading">Loading icons...</div>';
+
+    try {
+        const response = await fetch('/api/icons/search');
+        const data = await response.json();
+
+        iconPickerState.icons = data.icons || [];
+        countEl.textContent = `${iconPickerState.icons.length} icons available`;
+        renderIconGrid(iconPickerState.icons);
+    } catch (error) {
+        console.error('Failed to load icons:', error);
+        grid.innerHTML = '<div class="icon-picker-loading">Failed to load icons</div>';
+        countEl.textContent = 'Error loading icons';
+    }
+}
+
+async function searchIcons(query) {
+    const grid = document.getElementById('icon-grid');
+    const countEl = document.getElementById('icon-count');
+
+    try {
+        const response = await fetch(`/api/icons/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+
+        countEl.textContent = `${data.total} icons found`;
+        renderIconGrid(data.icons || []);
+    } catch (error) {
+        console.error('Failed to search icons:', error);
+    }
+}
+
+function renderIconGrid(icons) {
+    const grid = document.getElementById('icon-grid');
+    const cdnBase = 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg';
+
+    if (icons.length === 0) {
+        grid.innerHTML = '<div class="icon-picker-loading">No icons found</div>';
+        return;
+    }
+
+    // Limit to first 100 for performance
+    const displayIcons = icons.slice(0, 100);
+
+    grid.innerHTML = displayIcons.map(icon => `
+        <div class="icon-picker-item" onclick="selectIcon('${escapeHtml(icon)}')" title="${escapeHtml(icon)}">
+            <img src="${cdnBase}/${icon}.svg" alt="${escapeHtml(icon)}" loading="lazy"
+                onerror="this.style.display='none'">
+            <span>${escapeHtml(icon.length > 12 ? icon.substring(0, 10) + '...' : icon)}</span>
+        </div>
+    `).join('');
+
+    if (icons.length > 100) {
+        grid.innerHTML += `<div class="icon-picker-loading" style="grid-column: 1/-1; padding: 1rem;">
+            Showing first 100 of ${icons.length} results. Use search to narrow down.
+        </div>`;
+    }
+}
+
+async function selectIcon(iconName) {
+    const { sectionIndex, itemIndex } = iconPickerState;
+
+    if (sectionIndex === null || itemIndex === null) {
+        closeIconPicker();
+        return;
+    }
+
+    // Show loading state
+    const grid = document.getElementById('icon-grid');
+    const selectedItem = grid.querySelector(`[title="${iconName}"]`);
+    if (selectedItem) {
+        selectedItem.classList.add('selected');
+    }
+
+    try {
+        // Download the icon
+        const response = await fetch('/api/icons/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: iconName, format: 'svg' })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to download icon');
+        }
+
+        const result = await response.json();
+        const iconPath = result.path;
+
+        // Update the config
+        currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
+
+        // Update the input field
+        const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
+        if (input) {
+            input.value = iconPath;
+        }
+
+        // Re-render to show preview
+        renderServicesEditor();
+
+        closeIconPicker();
+    } catch (error) {
+        console.error('Failed to select icon:', error);
+        alert('Failed to download icon. Please try again.');
+        if (selectedItem) {
+            selectedItem.classList.remove('selected');
+        }
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('icon-picker-modal');
+    if (e.target === modal) {
+        closeIconPicker();
+    }
+});
+
+// Close modal on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeIconPicker();
+    }
+});

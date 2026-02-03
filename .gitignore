@@ -7,6 +7,9 @@ config.yaml
 # Downloaded Google Fonts (regenerated at runtime)
 fonts/
 
+# Downloaded Icons
+icons/
+
 # Claude Code project files
 .claude/
 

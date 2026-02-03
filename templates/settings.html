@@ -101,12 +101,6 @@
                                 <p class="help-text">Font will be downloaded and saved for offline use</p>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="twelve columns">
-                                <button class="button" onclick="clearFonts()" style="color: #fff; background-color: #e74c3c; border-color: #c0392b;">🗑️ Clear All Custom Fonts</button>
-                                <span id="clear-fonts-status" style="margin-left: 1rem;"></span>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Layout Settings -->
@@ -153,16 +147,37 @@
                         <button class="button" onclick="addWidget()">+ Add Widget</button>
                     </div>
 
-                    <!-- Save Button -->
+                    <!-- Actions -->
                     <div class="row" style="margin-top: 2rem;">
                         <div class="twelve columns">
                             <button class="button button-primary" onclick="saveConfig()">💾 Save Configuration</button>
+                            <button class="button" onclick="cleanUnusedAssets()" style="margin-left: 1rem;">🧹 Clean Unused Assets</button>
                             <span id="save-status"></span>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
+    </div>
+
+    <!-- Icon Picker Modal -->
+    <div id="icon-picker-modal" class="modal" style="display: none;">
+        <div class="modal-content icon-picker-content">
+            <div class="modal-header">
+                <h4>Select Icon</h4>
+                <button class="modal-close" onclick="closeIconPicker()">&times;</button>
+            </div>
+            <div class="icon-picker-search">
+                <input type="text" id="icon-search" class="u-full-width" placeholder="Search icons...">
+            </div>
+            <div class="icon-picker-grid" id="icon-grid">
+                <!-- Icons populated by JavaScript -->
+            </div>
+            <div class="icon-picker-footer">
+                <span id="icon-count">Loading icons...</span>
+                <button class="button" onclick="closeIconPicker()">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <script src="/static/js/settings.js"></script>

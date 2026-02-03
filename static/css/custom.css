@@ -850,6 +850,123 @@ h5 {
     gap: 1rem;
 }
 
+/* Icon Picker Modal */
+.icon-picker-content {
+    max-width: 800px;
+    max-height: 80vh;
+}
+
+.icon-picker-search {
+    padding: 1rem 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.icon-picker-search input {
+    background-color: var(--bg-color);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+    margin-bottom: 0;
+}
+
+.icon-picker-search input:focus {
+    border-color: var(--primary-color);
+}
+
+.icon-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.5rem;
+    padding: 1rem 2rem;
+    overflow-y: auto;
+    max-height: 400px;
+    min-height: 200px;
+}
+
+.icon-picker-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.icon-picker-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+}
+
+.icon-picker-item.selected {
+    background-color: rgba(51, 195, 240, 0.2);
+    border-color: var(--primary-color);
+}
+
+.icon-picker-item img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.icon-picker-item span {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 0.5rem;
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.icon-picker-footer {
+    padding: 1rem 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#icon-count {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.2rem;
+}
+
+.icon-picker-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Icon input group in settings */
+.icon-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.icon-input-group input {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.icon-input-group .button {
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.icon-preview {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
 /* Responsive adjustments */
 @media (max-width: 1000px) {
     .layout-row {

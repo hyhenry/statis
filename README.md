@@ -19,7 +19,7 @@ A lightweight, self-hosted dashboard for your homelab services. Built with Go an
 
 ```bash
 # Clone or download
-git clone https://github.com/yourusername/statis.git
+git clone https://github.com/hyhenry/statis.git
 cd statis
 
 # Edit config

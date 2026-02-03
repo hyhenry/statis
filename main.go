@@ -77,6 +77,11 @@ var (
 	configPath string
 	configMu   sync.RWMutex
 	templates  *template.Template
+
+	// Icon manifest cache
+	iconManifest    []string
+	iconManifestMu  sync.RWMutex
+	iconManifestAge time.Time
 )
 
 func main() {
@@ -127,6 +132,9 @@ func main() {
 	// Fonts directory (for downloaded Google Fonts)
 	mux.Handle("/fonts/", http.StripPrefix("/fonts/", http.FileServer(http.Dir("./fonts"))))
 
+	// Icons directory (for downloaded dashboard icons)
+	mux.Handle("/icons/", http.StripPrefix("/icons/", http.FileServer(http.Dir("./icons"))))
+
 	// Pages
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/settings", handleSettings)
@@ -136,7 +144,9 @@ func main() {
 	mux.HandleFunc("/api/widget/uptime-kuma", handleUptimeKumaProxy)
 	mux.HandleFunc("/api/widget/system-stats", handleSystemStats)
 	mux.HandleFunc("/api/widget/rss", handleRSSWidget)
-	mux.HandleFunc("/api/fonts/clear", handleClearFonts)
+	mux.HandleFunc("/api/assets/clean-unused", handleCleanUnusedAssets)
+	mux.HandleFunc("/api/icons/search", handleIconSearch)
+	mux.HandleFunc("/api/icons/download", handleIconDownload)
 
 	// Get port from environment or default to 8080
 	port := os.Getenv("PORT")
@@ -791,24 +801,251 @@ func stripHTMLTags(s string) string {
 	return re.ReplaceAllString(s, "")
 }
 
-func handleClearFonts(w http.ResponseWriter, r *http.Request) {
+type cleanupResult struct {
+	FontsRemoved int      `json:"fonts_removed"`
+	IconsRemoved int      `json:"icons_removed"`
+	FilesRemoved []string `json:"files_removed"`
+}
+
+func handleCleanUnusedAssets(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Delete the fonts directory
+	configMu.RLock()
+	currentFont := config.Theme.FontFamily
+	usedIcons := getUsedIcons()
+	configMu.RUnlock()
+
+	result := cleanupResult{
+		FilesRemoved: []string{},
+	}
+
+	// Clean unused fonts
 	fontsDir := "./fonts"
-	if err := os.RemoveAll(fontsDir); err != nil {
-		log.Printf("Failed to clear fonts: %v", err)
-		http.Error(w, "Failed to clear fonts", http.StatusInternalServerError)
+	if entries, err := os.ReadDir(fontsDir); err == nil {
+		normalizedFont := strings.ReplaceAll(currentFont, " ", "-")
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			// Keep files that start with the current font name (e.g., "Inter.css", "Inter_xxx.woff2")
+			if currentFont != "" && !isPredefinedFont(currentFont) && strings.HasPrefix(name, normalizedFont) {
+				continue
+			}
+			// Remove unused font file
+			filePath := filepath.Join(fontsDir, name)
+			if err := os.Remove(filePath); err == nil {
+				result.FontsRemoved++
+				result.FilesRemoved = append(result.FilesRemoved, "fonts/"+name)
+				log.Printf("Removed unused font: %s", name)
+			}
+		}
+	}
+
+	// Clean unused icons
+	iconsDir := "./icons"
+	if entries, err := os.ReadDir(iconsDir); err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			iconPath := "/icons/" + name
+			if !usedIcons[iconPath] {
+				// Remove unused icon file
+				filePath := filepath.Join(iconsDir, name)
+				if err := os.Remove(filePath); err == nil {
+					result.IconsRemoved++
+					result.FilesRemoved = append(result.FilesRemoved, "icons/"+name)
+					log.Printf("Removed unused icon: %s", name)
+				}
+			}
+		}
+	}
+
+	log.Printf("✓ Cleaned up %d fonts and %d icons", result.FontsRemoved, result.IconsRemoved)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+// getUsedIcons returns a set of icon paths that are currently referenced in the config
+func getUsedIcons() map[string]bool {
+	used := make(map[string]bool)
+	for _, section := range config.Services {
+		for _, item := range section.Items {
+			if item.Icon != "" && strings.HasPrefix(item.Icon, "/icons/") {
+				used[item.Icon] = true
+			}
+		}
+	}
+	return used
+}
+
+// Dashboard icons constants
+const (
+	iconManifestURL = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@main/tree.json"
+	iconCDNBase     = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons"
+	iconCacheTTL    = 24 * time.Hour
+)
+
+type iconManifestResponse struct {
+	Icons []string `json:"icons"`
+	Total int      `json:"total"`
+}
+
+type iconDownloadRequest struct {
+	Name   string `json:"name"`
+	Format string `json:"format"`
+}
+
+func handleIconSearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	log.Printf("✓ All custom fonts cleared")
+	query := strings.ToLower(r.URL.Query().Get("q"))
+
+	// Get or refresh icon manifest
+	icons, err := getIconManifest()
+	if err != nil {
+		log.Printf("Failed to fetch icon manifest: %v", err)
+		http.Error(w, "Failed to fetch icon list", http.StatusInternalServerError)
+		return
+	}
+
+	// Filter icons by query
+	var filtered []string
+	for _, icon := range icons {
+		if query == "" || strings.Contains(strings.ToLower(icon), query) {
+			filtered = append(filtered, icon)
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	json.NewEncoder(w).Encode(iconManifestResponse{
+		Icons: filtered,
+		Total: len(filtered),
+	})
+}
+
+func getIconManifest() ([]string, error) {
+	iconManifestMu.RLock()
+	if len(iconManifest) > 0 && time.Since(iconManifestAge) < iconCacheTTL {
+		defer iconManifestMu.RUnlock()
+		return iconManifest, nil
+	}
+	iconManifestMu.RUnlock()
+
+	// Fetch fresh manifest
+	resp, err := http.Get(iconManifestURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("failed to fetch manifest: HTTP %d", resp.StatusCode)
+	}
+
+	var treeData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&treeData); err != nil {
+		return nil, err
+	}
+
+	// Extract icon names from the tree.json structure
+	// The structure has "svg" and "png" keys with arrays of filenames
+	var icons []string
+	iconSet := make(map[string]bool)
+
+	if svgList, ok := treeData["svg"].([]interface{}); ok {
+		for _, item := range svgList {
+			if name, ok := item.(string); ok {
+				// Remove .svg extension
+				name = strings.TrimSuffix(name, ".svg")
+				if !iconSet[name] {
+					iconSet[name] = true
+					icons = append(icons, name)
+				}
+			}
+		}
+	}
+
+	// Cache the result
+	iconManifestMu.Lock()
+	iconManifest = icons
+	iconManifestAge = time.Now()
+	iconManifestMu.Unlock()
+
+	return icons, nil
+}
+
+func handleIconDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req iconDownloadRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Name == "" {
+		http.Error(w, "Missing icon name", http.StatusBadRequest)
+		return
+	}
+
+	// Default to svg format
+	format := req.Format
+	if format == "" {
+		format = "svg"
+	}
+	if format != "svg" && format != "png" {
+		http.Error(w, "Invalid format (must be svg or png)", http.StatusBadRequest)
+		return
+	}
+
+	// Create icons directory if it doesn't exist
+	iconsDir := "./icons"
+	if err := os.MkdirAll(iconsDir, 0755); err != nil {
+		http.Error(w, "Failed to create icons directory", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if icon already exists
+	iconFileName := req.Name + "." + format
+	iconPath := filepath.Join(iconsDir, iconFileName)
+	if _, err := os.Stat(iconPath); err == nil {
+		// Icon already exists
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "ok",
+			"path":   "/icons/" + iconFileName,
+		})
+		return
+	}
+
+	// Download icon from CDN
+	iconURL := fmt.Sprintf("%s/%s/%s.%s", iconCDNBase, format, req.Name, format)
+	if err := downloadFile(iconURL, iconPath); err != nil {
+		log.Printf("Failed to download icon '%s': %v", req.Name, err)
+		http.Error(w, "Failed to download icon", http.StatusBadGateway)
+		return
+	}
+
+	log.Printf("✓ Downloaded icon: %s", iconFileName)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+		"path":   "/icons/" + iconFileName,
+	})
 }
 
 // downloadGoogleFont downloads a Google Font and saves it locally with offline font files
