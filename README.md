@@ -1,4 +1,4 @@
-# Homelab Dashboard
+# Statis
 
 A lightweight, self-hosted dashboard for your homelab services. Built with Go and Skeleton CSS for minimal resource usage.
 
@@ -19,8 +19,8 @@ A lightweight, self-hosted dashboard for your homelab services. Built with Go an
 
 ```bash
 # Clone or download
-git clone https://github.com/yourusername/homelab-dash.git
-cd homelab-dash
+git clone https://github.com/yourusername/statis.git
+cd statis
 
 # Edit config
 cp config.yaml.example config.yaml
@@ -34,10 +34,10 @@ docker-compose up -d
 
 ```bash
 # Build
-go build -o homelab-dash .
+go build -o statis .
 
 # Run
-./homelab-dash
+./statis
 ```
 
 ### Option 3: Build from Source
@@ -145,14 +145,14 @@ location / {
 ```yaml
 labels:
   - "traefik.enable=true"
-  - "traefik.http.routers.homelab-dash.rule=Host(`dash.yourdomain.com`)"
+  - "traefik.http.routers.statis.rule=Host(`dash.yourdomain.com`)"
 ```
 
 ## Development
 
 ### Project Structure
 ```
-homelab-dash/
+statis/
 ├── main.go              # Main application
 ├── config.yaml          # Configuration
 ├── templates/
@@ -189,7 +189,7 @@ homelab-dash/
 
 ## Comparison
 
-| Feature | Homelab Dash | Dashy | Homer |
+| Feature | Statis | Dashy | Homer |
 |---------|--------------|-------|-------|
 | Binary Size | ~8MB | N/A | N/A |
 | Memory Usage | ~10MB | ~100MB+ | ~50MB+ |

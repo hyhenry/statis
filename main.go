@@ -127,7 +127,7 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("🏠 Homelab Dashboard starting on http://localhost:%s", port)
+	log.Printf("🏠 Statis starting on http://localhost:%s", port)
 	log.Printf("📁 Config file: %s", configPath)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
@@ -239,7 +239,7 @@ func watchConfigFile() {
 
 func getDefaultConfig() Config {
 	return Config{
-		Title:    "Homelab Dashboard",
+		Title:    "Statis",
 		Subtitle: "Welcome home",
 		Theme: Theme{
 			PrimaryColor:    "#33C3F0",

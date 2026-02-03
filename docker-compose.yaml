@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  homelab-dash:
+  statis:
     build: .
-    container_name: homelab-dash
+    container_name: statis
     restart: unless-stopped
     ports:
       - "8080:8080"

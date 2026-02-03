@@ -1,7 +1,7 @@
 # Compiled binary
-homelab-dash
+statis
 
-# User configuration (contains personal homelab URLs and settings)
+# User configuration (contains personal home lab URLs and settings)
 config.yaml
 
 # Downloaded Google Fonts (regenerated at runtime)

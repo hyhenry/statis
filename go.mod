@@ -1,4 +1,4 @@
-module homelab-dash
+module statis
 
 go 1.21
 
