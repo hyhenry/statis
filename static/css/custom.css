@@ -69,6 +69,7 @@ body {
     font-weight: 500;
     margin-bottom: 1.5rem;
     padding-bottom: 0.5rem;
+    font-size: 2.0rem;
     display: inline-block;
 }
 
@@ -215,6 +216,7 @@ body {
     color: var(--text-color);
     transition: max-height 0.3s ease, opacity 0.3s ease;
     overflow: hidden;
+
 }
 
 .widget.collapsed .widget-content {
@@ -384,6 +386,101 @@ body {
 .status-uptime {
     font-size: 1.2rem;
     color: rgba(255, 255, 255, 0.6);
+}
+
+/* RSS Widget */
+.rss-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.rss-item {
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rss-item:first-child {
+    padding-top: 0;
+}
+
+.rss-item:last-child {
+    border-bottom: none;
+}
+
+.rss-title {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--primary-color);
+    text-decoration: none;
+    margin-bottom: 0.4rem;
+    line-height: 1.4;
+}
+
+.rss-title:hover {
+    text-decoration: underline;
+    opacity: 0.9;
+}
+
+.rss-description {
+    font-size: 1.15rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 0.4rem 0;
+    line-height: 1.5;
+}
+
+.rss-date {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.rss-empty {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.rss-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rss-nav-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: var(--text-color);
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.rss-nav-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.rss-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.rss-page-info {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.6);
+    min-width: 60px;
+    text-align: center;
 }
 
 /* Footer */

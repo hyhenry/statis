@@ -180,6 +180,7 @@ function renderWidgetsEditor() {
                         <option value="iframe" ${widget.type === 'iframe' ? 'selected' : ''}>iFrame</option>
                         <option value="clock" ${widget.type === 'clock' ? 'selected' : ''}>Clock</option>
                         <option value="system-stats" ${widget.type === 'system-stats' ? 'selected' : ''}>System Stats</option>
+                        <option value="rss" ${widget.type === 'rss' ? 'selected' : ''}>RSS Feed</option>
                     </select>
                 </div>
                 <div class="eight columns">

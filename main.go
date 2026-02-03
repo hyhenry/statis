@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"html/template"
 	"io"
@@ -133,6 +134,7 @@ func main() {
 	mux.HandleFunc("/api/config", handleAPIConfig)
 	mux.HandleFunc("/api/widget/uptime-kuma", handleUptimeKumaProxy)
 	mux.HandleFunc("/api/widget/system-stats", handleSystemStats)
+	mux.HandleFunc("/api/widget/rss", handleRSSWidget)
 	mux.HandleFunc("/api/fonts/clear", handleClearFonts)
 
 	// Get port from environment or default to 8080
@@ -574,6 +576,121 @@ func getMemoryStats() (uint64, uint64, error) {
 	}
 
 	return totalKB * 1024, availableKB * 1024, nil
+}
+
+// RSS feed types for parsing
+type rssFeed struct {
+	Channel rssChannel `xml:"channel"`
+}
+
+type rssChannel struct {
+	Items []rssItem `xml:"item"`
+}
+
+type rssItem struct {
+	Title       string `xml:"title"`
+	Link        string `xml:"link"`
+	Description string `xml:"description"`
+	PubDate     string `xml:"pubDate"`
+}
+
+// Atom feed types for parsing
+type atomFeed struct {
+	Entries []atomEntry `xml:"entry"`
+}
+
+type atomEntry struct {
+	Title   string    `xml:"title"`
+	Link    atomLink  `xml:"link"`
+	Summary string    `xml:"summary"`
+	Content string    `xml:"content"`
+	Updated string    `xml:"updated"`
+}
+
+type atomLink struct {
+	Href string `xml:"href,attr"`
+}
+
+type rssResponse struct {
+	Items []rssResponseItem `json:"items"`
+}
+
+type rssResponseItem struct {
+	Title       string `json:"title"`
+	Link        string `json:"link"`
+	Description string `json:"description"`
+	PubDate     string `json:"pub_date"`
+}
+
+func handleRSSWidget(w http.ResponseWriter, r *http.Request) {
+	feedURL := r.URL.Query().Get("url")
+	if feedURL == "" {
+		http.Error(w, "Missing url parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch the RSS feed
+	resp, err := http.Get(feedURL)
+	if err != nil {
+		http.Error(w, "Failed to fetch RSS feed", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		http.Error(w, "RSS feed returned error", http.StatusBadGateway)
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, "Failed to read RSS feed", http.StatusInternalServerError)
+		return
+	}
+
+	var items []rssResponseItem
+
+	// Try parsing as RSS 2.0 first
+	var rss rssFeed
+	if err := xml.Unmarshal(body, &rss); err == nil && len(rss.Channel.Items) > 0 {
+		for _, item := range rss.Channel.Items {
+			items = append(items, rssResponseItem{
+				Title:       item.Title,
+				Link:        item.Link,
+				Description: stripHTMLTags(item.Description),
+				PubDate:     item.PubDate,
+			})
+		}
+	} else {
+		// Try parsing as Atom
+		var atom atomFeed
+		if err := xml.Unmarshal(body, &atom); err == nil && len(atom.Entries) > 0 {
+			for _, entry := range atom.Entries {
+				desc := entry.Summary
+				if desc == "" {
+					desc = entry.Content
+				}
+				items = append(items, rssResponseItem{
+					Title:       entry.Title,
+					Link:        entry.Link.Href,
+					Description: stripHTMLTags(desc),
+					PubDate:     entry.Updated,
+				})
+			}
+		} else {
+			http.Error(w, "Failed to parse feed (not valid RSS or Atom)", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rssResponse{Items: items})
+}
+
+// stripHTMLTags removes HTML tags from a string
+func stripHTMLTags(s string) string {
+	re := regexp.MustCompile(`<[^>]*>`)
+	return re.ReplaceAllString(s, "")
 }
 
 func handleClearFonts(w http.ResponseWriter, r *http.Request) {

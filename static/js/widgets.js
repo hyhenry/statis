@@ -32,6 +32,9 @@ function initWidget(widgetEl) {
         case 'system-stats':
             initSystemStatsWidget(widgetEl, config);
             break;
+        case 'rss':
+            initRSSWidget(widgetEl, config);
+            break;
         default:
             console.warn('Unknown widget type:', type);
     }
@@ -337,6 +340,133 @@ function formatBytes(bytes) {
 
     const precision = size >= 100 ? 0 : size >= 10 ? 1 : 2;
     return `${size.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+// RSS Widget
+async function initRSSWidget(widgetEl, config) {
+    const contentEl = widgetEl.querySelector('.widget-content');
+    const titleEl = widgetEl.querySelector('.widget-title');
+
+    if (titleEl && !titleEl.parentElement.classList.contains('widget-header')) {
+        const header = document.createElement('div');
+        header.className = 'widget-header';
+        titleEl.parentElement.insertBefore(header, titleEl);
+        header.appendChild(titleEl);
+    }
+
+    if (!config.url) {
+        contentEl.innerHTML = '<p class="error">Widget not configured. Set url in config.</p>';
+        return;
+    }
+
+    const itemsPerPage = parseInt(config.items_per_page) || 3;
+    const refreshSeconds = parseInt(config.refresh) || 300;
+    let currentPage = 0;
+    let allItems = [];
+
+    async function fetchFeed() {
+        try {
+            const response = await fetch(`/api/widget/rss?url=${encodeURIComponent(config.url)}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch RSS feed');
+            }
+            const data = await response.json();
+            allItems = data.items || [];
+            currentPage = 0;
+            renderRSSWidget();
+        } catch (error) {
+            contentEl.innerHTML = `
+                <p class="error" style="color: #e74c3c;">
+                    Unable to load RSS feed<br>
+                    <small style="color: rgba(255,255,255,0.5);">${escapeHtml(config.url)}</small>
+                </p>
+            `;
+        }
+    }
+
+    function renderRSSWidget() {
+        if (allItems.length === 0) {
+            contentEl.innerHTML = '<p class="rss-empty">No articles found</p>';
+            return;
+        }
+
+        const totalPages = Math.ceil(allItems.length / itemsPerPage);
+        const startIdx = currentPage * itemsPerPage;
+        const pageItems = allItems.slice(startIdx, startIdx + itemsPerPage);
+
+        let html = '<div class="rss-items">';
+        pageItems.forEach(item => {
+            const date = formatRSSDate(item.pub_date);
+            const description = truncateText(item.description, 120);
+            html += `
+                <div class="rss-item">
+                    <a href="${escapeHtml(item.link)}" target="_blank" class="rss-title">${escapeHtml(item.title)}</a>
+                    <p class="rss-description">${escapeHtml(description)}</p>
+                    ${date ? `<span class="rss-date">${date}</span>` : ''}
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        // Pagination controls
+        if (totalPages > 1) {
+            html += `
+                <div class="rss-pagination">
+                    <button class="rss-nav-btn rss-prev" ${currentPage === 0 ? 'disabled' : ''}>&#9664;</button>
+                    <span class="rss-page-info">${currentPage + 1} / ${totalPages}</span>
+                    <button class="rss-nav-btn rss-next" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>&#9654;</button>
+                </div>
+            `;
+        }
+
+        contentEl.innerHTML = html;
+
+        // Attach event listeners for pagination
+        const prevBtn = contentEl.querySelector('.rss-prev');
+        const nextBtn = contentEl.querySelector('.rss-next');
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 0) {
+                    currentPage--;
+                    renderRSSWidget();
+                }
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                if (currentPage < totalPages - 1) {
+                    currentPage++;
+                    renderRSSWidget();
+                }
+            });
+        }
+    }
+
+    await fetchFeed();
+    setInterval(fetchFeed, refreshSeconds * 1000);
+}
+
+function formatRSSDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '';
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    } catch {
+        return '';
+    }
+}
+
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
 }
 
 // Utility function to escape HTML
