@@ -185,6 +185,17 @@ h5 {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.widget[data-type="header"] {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+.widget[data-type="header"] .widget-content {
+    padding: 0;
+}
+
 .widget.collapsed {
     padding: 1.2rem;
 }
@@ -351,6 +362,10 @@ h5 {
     min-height: 48px;
 }
 
+.widget[data-type="rss"] .widget-header {
+    min-height: 48px;
+}
+
 .widget[data-type="uptime-kuma"] .widget-title {
     line-height: 1.2;
 }
@@ -414,6 +429,8 @@ h5 {
 }
 
 .rss-item {
+    display: flex;
+    gap: 1rem;
     padding: 1rem 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -424,6 +441,26 @@ h5 {
 
 .rss-item:last-child {
     border-bottom: none;
+}
+
+.rss-thumb {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.rss-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.rss-body {
+    min-width: 0;
 }
 
 .rss-title {

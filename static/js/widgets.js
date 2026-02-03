@@ -35,6 +35,9 @@ function initWidget(widgetEl) {
         case 'rss':
             initRSSWidget(widgetEl, config);
             break;
+        case 'header':
+            initHeaderWidget(widgetEl, config);
+            break;
         default:
             console.warn('Unknown widget type:', type);
     }
@@ -400,9 +403,16 @@ async function initRSSWidget(widgetEl, config) {
             const description = truncateText(item.description, 120);
             html += `
                 <div class="rss-item">
-                    <a href="${escapeHtml(item.link)}" target="_blank" class="rss-title">${escapeHtml(item.title)}</a>
-                    <p class="rss-description">${escapeHtml(description)}</p>
-                    ${date ? `<span class="rss-date">${date}</span>` : ''}
+                    ${item.image ? `
+                        <div class="rss-thumb">
+                            <img src="${escapeHtml(item.image)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'">
+                        </div>
+                    ` : ''}
+                    <div class="rss-body">
+                        <a href="${escapeHtml(item.link)}" target="_blank" class="rss-title">${escapeHtml(item.title)}</a>
+                        <p class="rss-description">${escapeHtml(description)}</p>
+                        ${date ? `<span class="rss-date">${date}</span>` : ''}
+                    </div>
                 </div>
             `;
         });
@@ -446,6 +456,12 @@ async function initRSSWidget(widgetEl, config) {
 
     await fetchFeed();
     setInterval(fetchFeed, refreshSeconds * 1000);
+}
+
+function initHeaderWidget(widgetEl, config) {
+    const titleEl = widgetEl.querySelector('.widget-title');
+    const title = titleEl ? titleEl.textContent.trim() : (config?.title || 'Section');
+    widgetEl.innerHTML = `<h4 class="section-title">${escapeHtml(title)}</h4>`;
 }
 
 function formatRSSDate(dateStr) {

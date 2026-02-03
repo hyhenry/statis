@@ -602,10 +602,23 @@ type rssChannel struct {
 }
 
 type rssItem struct {
-	Title       string `xml:"title"`
-	Link        string `xml:"link"`
-	Description string `xml:"description"`
-	PubDate     string `xml:"pubDate"`
+	Title          string         `xml:"title"`
+	Link           string         `xml:"link"`
+	Description    string         `xml:"description"`
+	PubDate        string         `xml:"pubDate"`
+	Enclosure      rssEnclosure   `xml:"enclosure"`
+	MediaContent   []mediaContent `xml:"http://search.yahoo.com/mrss/ content"`
+	MediaThumbnail []mediaContent `xml:"http://search.yahoo.com/mrss/ thumbnail"`
+}
+
+type rssEnclosure struct {
+	URL  string `xml:"url,attr"`
+	Type string `xml:"type,attr"`
+}
+
+type mediaContent struct {
+	URL  string `xml:"url,attr"`
+	Type string `xml:"type,attr"`
 }
 
 // Atom feed types for parsing
@@ -614,15 +627,17 @@ type atomFeed struct {
 }
 
 type atomEntry struct {
-	Title   string    `xml:"title"`
-	Link    atomLink  `xml:"link"`
-	Summary string    `xml:"summary"`
-	Content string    `xml:"content"`
-	Updated string    `xml:"updated"`
+	Title   string     `xml:"title"`
+	Links   []atomLink `xml:"link"`
+	Summary string     `xml:"summary"`
+	Content string     `xml:"content"`
+	Updated string     `xml:"updated"`
 }
 
 type atomLink struct {
 	Href string `xml:"href,attr"`
+	Rel  string `xml:"rel,attr"`
+	Type string `xml:"type,attr"`
 }
 
 type rssResponse struct {
@@ -634,6 +649,7 @@ type rssResponseItem struct {
 	Link        string `json:"link"`
 	Description string `json:"description"`
 	PubDate     string `json:"pub_date"`
+	Image       string `json:"image"`
 }
 
 func handleRSSWidget(w http.ResponseWriter, r *http.Request) {
@@ -668,11 +684,36 @@ func handleRSSWidget(w http.ResponseWriter, r *http.Request) {
 	var rss rssFeed
 	if err := xml.Unmarshal(body, &rss); err == nil && len(rss.Channel.Items) > 0 {
 		for _, item := range rss.Channel.Items {
+			imageURL := ""
+			if item.Enclosure.URL != "" && strings.HasPrefix(item.Enclosure.Type, "image/") {
+				imageURL = item.Enclosure.URL
+			}
+			if imageURL == "" {
+				for _, media := range item.MediaContent {
+					if media.URL != "" {
+						imageURL = media.URL
+						break
+					}
+				}
+			}
+			if imageURL == "" {
+				for _, media := range item.MediaThumbnail {
+					if media.URL != "" {
+						imageURL = media.URL
+						break
+					}
+				}
+			}
+			if imageURL == "" {
+				imageURL = extractFirstImageURL(item.Description)
+			}
+
 			items = append(items, rssResponseItem{
 				Title:       item.Title,
 				Link:        item.Link,
 				Description: stripHTMLTags(item.Description),
 				PubDate:     item.PubDate,
+				Image:       imageURL,
 			})
 		}
 	} else {
@@ -684,11 +725,18 @@ func handleRSSWidget(w http.ResponseWriter, r *http.Request) {
 				if desc == "" {
 					desc = entry.Content
 				}
+				linkURL := pickAtomLink(entry.Links)
+				imageURL := pickAtomImage(entry.Links)
+				if imageURL == "" {
+					imageURL = extractFirstImageURL(desc)
+				}
+
 				items = append(items, rssResponseItem{
 					Title:       entry.Title,
-					Link:        entry.Link.Href,
+					Link:        linkURL,
 					Description: stripHTMLTags(desc),
 					PubDate:     entry.Updated,
+					Image:       imageURL,
 				})
 			}
 		} else {
@@ -699,6 +747,42 @@ func handleRSSWidget(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rssResponse{Items: items})
+}
+
+func pickAtomLink(links []atomLink) string {
+	for _, link := range links {
+		if link.Href == "" {
+			continue
+		}
+		if link.Rel == "" || link.Rel == "alternate" {
+			return link.Href
+		}
+	}
+	if len(links) > 0 {
+		return links[0].Href
+	}
+	return ""
+}
+
+func pickAtomImage(links []atomLink) string {
+	for _, link := range links {
+		if link.Href == "" {
+			continue
+		}
+		if link.Rel == "enclosure" && strings.HasPrefix(link.Type, "image/") {
+			return link.Href
+		}
+	}
+	return ""
+}
+
+func extractFirstImageURL(s string) string {
+	re := regexp.MustCompile(`(?i)<img[^>]+src=["']([^"']+)["']`)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
 }
 
 // stripHTMLTags removes HTML tags from a string

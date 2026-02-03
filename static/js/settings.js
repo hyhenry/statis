@@ -181,6 +181,7 @@ function renderWidgetsEditor() {
                         <option value="clock" ${widget.type === 'clock' ? 'selected' : ''}>Clock</option>
                         <option value="system-stats" ${widget.type === 'system-stats' ? 'selected' : ''}>System Stats</option>
                         <option value="rss" ${widget.type === 'rss' ? 'selected' : ''}>RSS Feed</option>
+                        <option value="header" ${widget.type === 'header' ? 'selected' : ''}>Header</option>
                     </select>
                 </div>
                 <div class="eight columns">
