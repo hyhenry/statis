@@ -352,150 +352,60 @@ async function saveFromYaml() {
     }
 }
 
-// Simple YAML serializer (for display purposes)
+// YAML serializer using js-yaml library
 function configToYaml(config) {
-    let yaml = '';
-    yaml += `title: "${config.title}"\n`;
-    yaml += `subtitle: "${config.subtitle}"\n\n`;
-
-    yaml += `theme:\n`;
-    yaml += `  primary_color: "${config.theme.primary_color}"\n`;
-    yaml += `  background_color: "${config.theme.background_color}"\n`;
-    yaml += `  card_color: "${config.theme.card_color}"\n`;
-    yaml += `  text_color: "${config.theme.text_color}"\n`;
-    if (config.theme.font_family) {
-        yaml += `  font_family: "${config.theme.font_family}"\n`;
-    }
-    yaml += `\n`;
-
-    yaml += `services:\n`;
-    config.services.forEach(section => {
-        yaml += `  - name: "${section.name}"\n`;
-        yaml += `    items:\n`;
-        section.items.forEach(item => {
-            yaml += `      - name: "${item.name}"\n`;
-            yaml += `        url: "${item.url}"\n`;
-            if (item.icon) yaml += `        icon: "${item.icon}"\n`;
-            if (item.icon_text) yaml += `        icon_text: "${item.icon_text}"\n`;
-            if (item.description) yaml += `        description: "${item.description}"\n`;
-        });
+    // Use js-yaml for proper YAML serialization
+    return jsyaml.dump(config, {
+        indent: 4,
+        lineWidth: -1,  // Don't wrap long lines
+        quotingType: "'",  // Use single quotes for strings
+        forceQuotes: false  // Only quote when necessary
     });
-
-    yaml += `\nwidgets:\n`;
-    config.widgets.forEach(widget => {
-        yaml += `  - type: "${widget.type}"\n`;
-        yaml += `    title: "${widget.title}"\n`;
-        if (widget.config && Object.keys(widget.config).length > 0) {
-            yaml += `    config:\n`;
-            Object.entries(widget.config).forEach(([k, v]) => {
-                yaml += `      ${k}: "${v}"\n`;
-            });
-        }
-    });
-
-    return yaml;
 }
 
-// Simple YAML parser (basic implementation)
+// YAML parser using js-yaml library
 function yamlToConfig(yaml) {
-    // For a real implementation, use js-yaml library
-    // This is a simplified version that works with our specific format
-    const lines = yaml.split('\n');
+    // Use js-yaml for proper YAML parsing
+    const parsed = jsyaml.load(yaml);
+
+    // Normalize the parsed config to match expected structure
     const config = {
-        title: '',
-        subtitle: '',
-        theme: {},
+        title: parsed.title || '',
+        subtitle: parsed.subtitle || '',
+        theme: {
+            primary_color: parsed.theme?.primary_color || '',
+            background_color: parsed.theme?.background_color || '',
+            card_color: parsed.theme?.card_color || '',
+            text_color: parsed.theme?.text_color || '',
+            font_family: parsed.theme?.font_family || ''
+        },
         services: [],
         widgets: []
     };
 
-    let mode = null; // 'theme', 'services', 'widgets'
-    let currentServiceSection = null;
-    let currentServiceItem = null;
-    let currentWidget = null;
-    let inWidgetConfig = false;
+    // Normalize services
+    if (Array.isArray(parsed.services)) {
+        config.services = parsed.services.map(section => ({
+            name: section.name || '',
+            items: Array.isArray(section.items) ? section.items.map(item => ({
+                name: item.name || '',
+                url: item.url || '',
+                icon: item.icon || '',
+                icon_text: item.icon_text || '',
+                description: item.description || '',
+                target: item.target || ''
+            })) : []
+        }));
+    }
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) return;
-
-        // Detect sections
-        if (trimmed === 'theme:') {
-            mode = 'theme';
-            return;
-        }
-        if (trimmed === 'services:') {
-            mode = 'services';
-            currentServiceSection = null;
-            currentServiceItem = null;
-            return;
-        }
-        if (trimmed === 'widgets:') {
-            mode = 'widgets';
-            currentWidget = null;
-            return;
-        }
-
-        // Parse based on mode
-        if (mode === null) {
-            // Top-level properties
-            const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
-            if (match) {
-                const [, key, value] = match;
-                if (key === 'title') config.title = value;
-                else if (key === 'subtitle') config.subtitle = value;
-            }
-        } else if (mode === 'theme') {
-            const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
-            if (match) {
-                const [, key, value] = match;
-                config.theme[key] = value;
-            }
-        } else if (mode === 'services') {
-            // Check for service item first (6 spaces) before service section (2 spaces)
-            if (trimmed.startsWith('- name:') && line.startsWith('      ') && !line.startsWith('       ')) {
-                // New service item within section (6 spaces indentation)
-                const name = trimmed.match(/"([^"]*)"/)?.[1] || '';
-                currentServiceItem = { name, url: '', icon: '', icon_text: '', description: '' };
-                if (currentServiceSection) {
-                    currentServiceSection.items.push(currentServiceItem);
-                }
-            } else if (trimmed.startsWith('- name:') && line.startsWith('  ') && !line.startsWith('   ')) {
-                // New service section (2 spaces indentation)
-                const name = trimmed.match(/"([^"]*)"/)?.[1] || '';
-                currentServiceSection = { name, items: [] };
-                config.services.push(currentServiceSection);
-                currentServiceItem = null;
-            } else if (currentServiceItem) {
-                // Properties of service item
-                const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
-                if (match) {
-                    const [, key, value] = match;
-                    currentServiceItem[key] = value;
-                }
-            }
-        } else if (mode === 'widgets') {
-            if (trimmed.startsWith('- type:')) {
-                // New widget
-                const type = trimmed.match(/"([^"]*)"/)?.[1] || '';
-                currentWidget = { type, title: '', config: {} };
-                config.widgets.push(currentWidget);
-                inWidgetConfig = false;
-            } else if (trimmed === 'config:') {
-                inWidgetConfig = true;
-            } else if (currentWidget) {
-                const match = trimmed.match(/^(\w+):\s*"?([^"]*)"?$/);
-                if (match) {
-                    const [, key, value] = match;
-                    if (key === 'title') {
-                        currentWidget.title = value;
-                    } else if (inWidgetConfig) {
-                        currentWidget.config[key] = value;
-                    }
-                }
-            }
-        }
-    });
+    // Normalize widgets
+    if (Array.isArray(parsed.widgets)) {
+        config.widgets = parsed.widgets.map(widget => ({
+            type: widget.type || '',
+            title: widget.title || '',
+            config: widget.config && typeof widget.config === 'object' ? widget.config : {}
+        }));
+    }
 
     return config;
 }
