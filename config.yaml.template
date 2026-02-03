@@ -126,6 +126,12 @@ widgets:
       format: 24h              # Options: 12h or 24h
       timezone: local          # Options: local or IANA timezone (e.g., America/New_York, Europe/London)
 
+  # System Stats Widget (Linux only)
+  - type: system-stats
+    title: System Usage
+    config:
+      refresh: 5               # Refresh interval in seconds
+
   # Uptime Kuma Status Widget
   - type: uptime-kuma
     title: Server Status

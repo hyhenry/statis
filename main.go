@@ -13,8 +13,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
@@ -48,14 +51,14 @@ type Section struct {
 type Item struct {
 	Name        string `yaml:"name" json:"name"`
 	URL         string `yaml:"url" json:"url"`
-	Icon        string `yaml:"icon" json:"icon"`                   // URL to icon image
-	IconText    string `yaml:"icon_text" json:"icon_text"`         // Emoji or text fallback
+	Icon        string `yaml:"icon" json:"icon"`           // URL to icon image
+	IconText    string `yaml:"icon_text" json:"icon_text"` // Emoji or text fallback
 	Description string `yaml:"description" json:"description"`
-	Target      string `yaml:"target" json:"target"`               // _blank, _self, etc.
+	Target      string `yaml:"target" json:"target"` // _blank, _self, etc.
 }
 
 type Widget struct {
-	Type   string            `yaml:"type" json:"type"`     // uptime-kuma, iframe, weather, etc.
+	Type   string            `yaml:"type" json:"type"` // uptime-kuma, iframe, weather, etc.
 	Title  string            `yaml:"title" json:"title"`
 	Config map[string]string `yaml:"config" json:"config"` // Widget-specific config
 }
@@ -115,6 +118,7 @@ func main() {
 	// API endpoints
 	mux.HandleFunc("/api/config", handleAPIConfig)
 	mux.HandleFunc("/api/widget/uptime-kuma", handleUptimeKumaProxy)
+	mux.HandleFunc("/api/widget/system-stats", handleSystemStats)
 	mux.HandleFunc("/api/fonts/clear", handleClearFonts)
 
 	// Get port from environment or default to 8080
@@ -399,6 +403,160 @@ func handleUptimeKumaProxy(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(statusData)
 }
 
+type cpuTimes struct {
+	Total uint64
+	Idle  uint64
+}
+
+type systemStatsResponse struct {
+	CPU    cpuStats    `json:"cpu"`
+	Memory memoryStats `json:"memory"`
+}
+
+type cpuStats struct {
+	UsagePercent float64 `json:"usage_percent"`
+}
+
+type memoryStats struct {
+	TotalBytes     uint64  `json:"total_bytes"`
+	AvailableBytes uint64  `json:"available_bytes"`
+	UsedBytes      uint64  `json:"used_bytes"`
+	UsedPercent    float64 `json:"used_percent"`
+}
+
+func handleSystemStats(w http.ResponseWriter, r *http.Request) {
+	if runtime.GOOS != "linux" {
+		http.Error(w, "system stats supported on linux only", http.StatusNotImplemented)
+		return
+	}
+
+	cpuUsage, err := getCPUUsagePercent()
+	if err != nil {
+		http.Error(w, "failed to read cpu usage", http.StatusInternalServerError)
+		return
+	}
+
+	memTotal, memAvailable, err := getMemoryStats()
+	if err != nil {
+		http.Error(w, "failed to read memory stats", http.StatusInternalServerError)
+		return
+	}
+
+	used := memTotal - memAvailable
+	usedPercent := 0.0
+	if memTotal > 0 {
+		usedPercent = (float64(used) / float64(memTotal)) * 100
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(systemStatsResponse{
+		CPU: cpuStats{
+			UsagePercent: cpuUsage,
+		},
+		Memory: memoryStats{
+			TotalBytes:     memTotal,
+			AvailableBytes: memAvailable,
+			UsedBytes:      used,
+			UsedPercent:    usedPercent,
+		},
+	})
+}
+
+func getCPUUsagePercent() (float64, error) {
+	first, err := readCPUTimes()
+	if err != nil {
+		return 0, err
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	second, err := readCPUTimes()
+	if err != nil {
+		return 0, err
+	}
+
+	deltaTotal := second.Total - first.Total
+	deltaIdle := second.Idle - first.Idle
+	if deltaTotal == 0 {
+		return 0, nil
+	}
+
+	usage := (float64(deltaTotal-deltaIdle) / float64(deltaTotal)) * 100
+	return usage, nil
+}
+
+func readCPUTimes() (cpuTimes, error) {
+	data, err := os.ReadFile("/proc/stat")
+	if err != nil {
+		return cpuTimes{}, err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	if len(lines) == 0 {
+		return cpuTimes{}, fmt.Errorf("empty /proc/stat")
+	}
+
+	fields := strings.Fields(lines[0])
+	if len(fields) < 5 {
+		return cpuTimes{}, fmt.Errorf("unexpected /proc/stat format")
+	}
+
+	var total uint64
+	var idle uint64
+	for i := 1; i < len(fields); i++ {
+		value, err := strconv.ParseUint(fields[i], 10, 64)
+		if err != nil {
+			return cpuTimes{}, err
+		}
+		total += value
+		if i == 4 || i == 5 { // idle + iowait
+			idle += value
+		}
+	}
+
+	return cpuTimes{Total: total, Idle: idle}, nil
+}
+
+func getMemoryStats() (uint64, uint64, error) {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var totalKB uint64
+	var availableKB uint64
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		switch fields[0] {
+		case "MemTotal:":
+			value, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				return 0, 0, err
+			}
+			totalKB = value
+		case "MemAvailable:":
+			value, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				return 0, 0, err
+			}
+			availableKB = value
+		}
+	}
+
+	if totalKB == 0 {
+		return 0, 0, fmt.Errorf("MemTotal not found")
+	}
+	if availableKB == 0 {
+		return 0, 0, fmt.Errorf("MemAvailable not found")
+	}
+
+	return totalKB * 1024, availableKB * 1024, nil
+}
+
 func handleClearFonts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -554,15 +712,15 @@ func downloadFile(url, filepath string) error {
 // isPredefinedFont checks if a font is one of the predefined web-safe fonts
 func isPredefinedFont(fontName string) bool {
 	predefinedFonts := map[string]bool{
-		"system":         true,
-		"Arial":          true,
-		"Helvetica":      true,
-		"Georgia":        true,
+		"system":          true,
+		"Arial":           true,
+		"Helvetica":       true,
+		"Georgia":         true,
 		"Times New Roman": true,
-		"Courier New":    true,
-		"Verdana":        true,
-		"Trebuchet MS":   true,
-		"Impact":         true,
+		"Courier New":     true,
+		"Verdana":         true,
+		"Trebuchet MS":    true,
+		"Impact":          true,
 	}
 	return predefinedFonts[fontName]
 }

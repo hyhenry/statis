@@ -185,6 +185,7 @@ homelab-dash/
 | `/api/config` | GET | Get current config |
 | `/api/config` | PUT | Update config |
 | `/api/widget/uptime-kuma` | GET | Proxy to Uptime Kuma |
+| `/api/widget/system-stats` | GET | Local CPU/RAM usage (Linux only) |
 
 ## Comparison
 

@@ -29,6 +29,9 @@ function initWidget(widgetEl) {
         case 'clock':
             initClockWidget(widgetEl, config);
             break;
+        case 'system-stats':
+            initSystemStatsWidget(widgetEl, config);
+            break;
         default:
             console.warn('Unknown widget type:', type);
     }
@@ -247,6 +250,93 @@ function initClockWidget(widgetEl, config) {
 
     updateClock();
     setInterval(updateClock, 1000);
+}
+
+// System Stats Widget
+function initSystemStatsWidget(widgetEl, config) {
+    const contentEl = widgetEl.querySelector('.widget-content');
+    const refreshSeconds = parseInt(config.refresh || config.interval, 10);
+    const refreshMs = Number.isFinite(refreshSeconds) && refreshSeconds > 0 ? refreshSeconds * 1000 : 5000;
+    let intervalId = null;
+
+    async function fetchAndRender() {
+        try {
+            const response = await fetch('/api/widget/system-stats');
+            if (!response.ok) {
+                if (response.status === 501) {
+                    contentEl.innerHTML = `
+                        <p class="error" style="color: rgba(255, 255, 255, 0.6);">
+                            System stats are available on Linux only.
+                        </p>
+                    `;
+                    if (intervalId) {
+                        clearInterval(intervalId);
+                    }
+                    return;
+                }
+                throw new Error('Failed to fetch system stats');
+            }
+
+            const data = await response.json();
+            renderSystemStatsWidget(contentEl, data);
+        } catch (error) {
+            contentEl.innerHTML = `
+                <p class="error" style="color: #e74c3c;">
+                    Unable to load system stats
+                </p>
+            `;
+        }
+    }
+
+    fetchAndRender();
+    intervalId = setInterval(fetchAndRender, refreshMs);
+}
+
+function renderSystemStatsWidget(contentEl, data) {
+    const cpuPercent = Math.max(0, Math.min(100, data?.cpu?.usage_percent || 0));
+    const memTotal = data?.memory?.total_bytes || 0;
+    const memUsed = data?.memory?.used_bytes || 0;
+    const memPercent = Math.max(0, Math.min(100, data?.memory?.used_percent || 0));
+
+    const memUsedText = formatBytes(memUsed);
+    const memTotalText = formatBytes(memTotal);
+
+    contentEl.innerHTML = `
+        <div class="system-stats">
+            <div class="stat-row">
+                <div class="stat-label">CPU</div>
+                <div class="stat-value">${cpuPercent.toFixed(1)}%</div>
+            </div>
+            <div class="stat-bar">
+                <div class="stat-fill stat-fill-cpu" style="width: ${cpuPercent}%"></div>
+            </div>
+            <div class="stat-row">
+                <div class="stat-label">RAM</div>
+                <div class="stat-value">${memUsedText} / ${memTotalText}</div>
+            </div>
+            <div class="stat-bar">
+                <div class="stat-fill stat-fill-ram" style="width: ${memPercent}%"></div>
+            </div>
+            <div class="stat-sub">${memPercent.toFixed(1)}% used</div>
+        </div>
+    `;
+}
+
+function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) {
+        return '0 B';
+    }
+
+    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+
+    const precision = size >= 100 ? 0 : size >= 10 ? 1 : 2;
+    return `${size.toFixed(precision)} ${units[unitIndex]}`;
 }
 
 // Utility function to escape HTML
