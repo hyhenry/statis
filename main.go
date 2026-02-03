@@ -31,8 +31,14 @@ type Config struct {
 	Title    string    `yaml:"title" json:"title"`
 	Subtitle string    `yaml:"subtitle" json:"subtitle"`
 	Theme    Theme     `yaml:"theme" json:"theme"`
+	Layout   Layout    `yaml:"layout" json:"layout"`
 	Services []Section `yaml:"services" json:"services"`
 	Widgets  []Widget  `yaml:"widgets" json:"widgets"`
+}
+
+type Layout struct {
+	WidgetColumns  int `yaml:"widget_columns" json:"widget_columns"`
+	ServiceColumns int `yaml:"service_columns" json:"service_columns"`
 }
 
 type Theme struct {
@@ -90,6 +96,13 @@ func main() {
 	funcMap := template.FuncMap{
 		"normalizeFont": func(fontName string) string {
 			return strings.ReplaceAll(fontName, " ", "-")
+		},
+		"colName": func(n int) string {
+			names := []string{"", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"}
+			if n >= 1 && n <= 12 {
+				return names[n]
+			}
+			return "four" // default
 		},
 	}
 	var err error
@@ -247,6 +260,10 @@ func getDefaultConfig() Config {
 			CardColor:       "#16213e",
 			TextColor:       "#eaeaea",
 			FontFamily:      "system",
+		},
+		Layout: Layout{
+			WidgetColumns:  4,
+			ServiceColumns: 8,
 		},
 		Services: []Section{
 			{

@@ -17,8 +17,10 @@ body {
 }
 
 .container {
-    max-width: 1600px;
+    width: 90%;
+    max-width: none;
     padding: 20px;
+    margin: 0 auto;
 }
 
 /* Header */
@@ -38,6 +40,27 @@ body {
     color: rgba(255, 255, 255, 0.6);
     font-size: 1.4rem;
     margin: 0;
+}
+
+/* Header Icon Buttons */
+.header-icon-btn {
+    display: inline-block;
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 1.6rem;
+    padding: 0.3rem 0.5rem;
+    cursor: pointer;
+    text-decoration: none;
+    opacity: 0.8;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    vertical-align: middle;
+}
+
+.header-icon-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+    color: var(--primary-color);
 }
 
 /* Section titles */
@@ -442,6 +465,59 @@ body {
     margin-bottom: 1rem;
 }
 
+/* Layout Slider */
+.layout-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin: 1rem 0;
+}
+
+.layout-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    outline: none;
+}
+
+.layout-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.layout-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.layout-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.layout-label {
+    font-size: 1.3rem;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.layout-label span {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
 .yaml-editor {
     font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
     font-size: 1.2rem;
@@ -625,13 +701,13 @@ body {
         flex-direction: column;
     }
 
-    .layout-row .nine.columns {
+    .layout-row .service-column {
         order: 1;
         width: 100%;
         margin-left: 0;
     }
 
-    .layout-row .three.columns {
+    .layout-row .widget-column {
         order: 2;
         width: 100%;
         margin-left: 0;

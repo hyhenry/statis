@@ -6,15 +6,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadConfig();
     renderServicesEditor();
     renderWidgetsEditor();
-    updateYamlEditor();
     initializeFontPicker();
-
-    // Close modal when clicking outside of it
-    document.getElementById('yamlModal')?.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeYamlModal();
-        }
-    });
+    initializeLayoutSlider();
 });
 
 async function loadConfig() {
@@ -24,6 +17,43 @@ async function loadConfig() {
     } catch (error) {
         console.error('Failed to load config:', error);
         alert('Failed to load configuration');
+    }
+}
+
+function initializeLayoutSlider() {
+    const slider = document.getElementById('layoutSlider');
+    const widgetLabel = document.getElementById('widgetColsLabel');
+    const serviceLabel = document.getElementById('serviceColsLabel');
+
+    if (!slider) return;
+
+    // Ensure layout exists in config
+    if (!currentConfig.layout) {
+        currentConfig.layout = { widget_columns: 4, service_columns: 8 };
+    }
+
+    // Set initial value from config
+    slider.value = currentConfig.layout.widget_columns || 4;
+    updateLayoutLabels();
+
+    slider.addEventListener('input', function() {
+        updateLayoutLabels();
+    });
+
+    slider.addEventListener('change', function() {
+        const widgetCols = parseInt(this.value);
+        const serviceCols = 12 - widgetCols;
+        currentConfig.layout = {
+            widget_columns: widgetCols,
+            service_columns: serviceCols
+        };
+    });
+
+    function updateLayoutLabels() {
+        const widgetCols = parseInt(slider.value);
+        const serviceCols = 12 - widgetCols;
+        widgetLabel.textContent = widgetCols;
+        serviceLabel.textContent = serviceCols;
     }
 }
 
@@ -169,20 +199,17 @@ function addSection() {
         items: []
     });
     renderServicesEditor();
-    updateYamlEditor();
 }
 
 function removeSection(index) {
     if (confirm('Remove this section and all its services?')) {
         currentConfig.services.splice(index, 1);
         renderServicesEditor();
-        updateYamlEditor();
-    }
+        }
 }
 
 function updateSectionName(index, value) {
     currentConfig.services[index].name = value;
-    updateYamlEditor();
 }
 
 // Item operations
@@ -194,18 +221,15 @@ function addItem(sectionIndex) {
         description: ''
     });
     renderServicesEditor();
-    updateYamlEditor();
 }
 
 function removeItem(sectionIndex, itemIndex) {
     currentConfig.services[sectionIndex].items.splice(itemIndex, 1);
     renderServicesEditor();
-    updateYamlEditor();
 }
 
 function updateItem(sectionIndex, itemIndex, field, value) {
     currentConfig.services[sectionIndex].items[itemIndex][field] = value;
-    updateYamlEditor();
 }
 
 // Widget operations
@@ -216,21 +240,18 @@ function addWidget() {
         config: {}
     });
     renderWidgetsEditor();
-    updateYamlEditor();
 }
 
 function removeWidget(index) {
     if (confirm('Remove this widget?')) {
         currentConfig.widgets.splice(index, 1);
         renderWidgetsEditor();
-        updateYamlEditor();
-    }
+        }
 }
 
 function updateWidget(index, field, value) {
     currentConfig.widgets[index][field] = value;
     renderWidgetsEditor();
-    updateYamlEditor();
 }
 
 function updateWidgetConfig(index, value) {
@@ -242,173 +263,36 @@ function updateWidgetConfig(index, value) {
         }
     });
     currentConfig.widgets[index].config = config;
-    updateYamlEditor();
 }
 
 // Theme updates
 document.getElementById('title')?.addEventListener('change', (e) => {
     currentConfig.title = e.target.value;
-    updateYamlEditor();
 });
 
 document.getElementById('subtitle')?.addEventListener('change', (e) => {
     currentConfig.subtitle = e.target.value;
-    updateYamlEditor();
 });
 
 document.getElementById('primaryColor')?.addEventListener('change', (e) => {
     currentConfig.theme.primary_color = e.target.value;
     document.documentElement.style.setProperty('--primary-color', e.target.value);
-    updateYamlEditor();
 });
 
 document.getElementById('bgColor')?.addEventListener('change', (e) => {
     currentConfig.theme.background_color = e.target.value;
     document.documentElement.style.setProperty('--bg-color', e.target.value);
-    updateYamlEditor();
 });
 
 document.getElementById('cardColor')?.addEventListener('change', (e) => {
     currentConfig.theme.card_color = e.target.value;
     document.documentElement.style.setProperty('--card-color', e.target.value);
-    updateYamlEditor();
 });
 
 document.getElementById('textColor')?.addEventListener('change', (e) => {
     currentConfig.theme.text_color = e.target.value;
     document.documentElement.style.setProperty('--text-color', e.target.value);
-    updateYamlEditor();
 });
-
-// YAML editor
-function updateYamlEditor() {
-    const yaml = configToYaml(currentConfig);
-    const editor = document.getElementById('yamlEditor');
-    if (editor) {
-        editor.value = yaml;
-    }
-}
-
-function openYamlModal() {
-    updateYamlEditor();
-    document.getElementById('yamlModal').classList.add('active');
-}
-
-function closeYamlModal() {
-    document.getElementById('yamlModal').classList.remove('active');
-    document.getElementById('yaml-save-status').textContent = '';
-}
-
-async function saveFromYaml() {
-    const statusEl = document.getElementById('yaml-save-status');
-
-    try {
-        const yaml = document.getElementById('yamlEditor').value;
-        const parsedConfig = yamlToConfig(yaml);
-
-        // Send the parsed config to the server
-        const response = await fetch('/api/config', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(parsedConfig)
-        });
-
-        if (response.ok) {
-            // Update current config
-            currentConfig = parsedConfig;
-
-            // Update all form fields
-            document.getElementById('title').value = currentConfig.title;
-            document.getElementById('subtitle').value = currentConfig.subtitle;
-            document.getElementById('primaryColor').value = currentConfig.theme.primary_color;
-            document.getElementById('bgColor').value = currentConfig.theme.background_color;
-            document.getElementById('cardColor').value = currentConfig.theme.card_color;
-            document.getElementById('textColor').value = currentConfig.theme.text_color;
-
-            // Update CSS variables
-            document.documentElement.style.setProperty('--primary-color', currentConfig.theme.primary_color);
-            document.documentElement.style.setProperty('--bg-color', currentConfig.theme.background_color);
-            document.documentElement.style.setProperty('--card-color', currentConfig.theme.card_color);
-            document.documentElement.style.setProperty('--text-color', currentConfig.theme.text_color);
-
-            // Re-render editors
-            renderServicesEditor();
-            renderWidgetsEditor();
-
-            statusEl.textContent = '✓ Saved!';
-            statusEl.style.color = '#2ecc71';
-
-            // Close modal after short delay
-            setTimeout(() => {
-                closeYamlModal();
-            }, 1500);
-        } else {
-            throw new Error('Save failed');
-        }
-    } catch (error) {
-        statusEl.textContent = '✗ Invalid YAML or save failed: ' + error.message;
-        statusEl.style.color = '#e74c3c';
-        console.error('Save YAML error:', error);
-    }
-}
-
-// YAML serializer using js-yaml library
-function configToYaml(config) {
-    // Use js-yaml for proper YAML serialization
-    return jsyaml.dump(config, {
-        indent: 4,
-        lineWidth: -1,  // Don't wrap long lines
-        quotingType: "'",  // Use single quotes for strings
-        forceQuotes: false  // Only quote when necessary
-    });
-}
-
-// YAML parser using js-yaml library
-function yamlToConfig(yaml) {
-    // Use js-yaml for proper YAML parsing
-    const parsed = jsyaml.load(yaml);
-
-    // Normalize the parsed config to match expected structure
-    const config = {
-        title: parsed.title || '',
-        subtitle: parsed.subtitle || '',
-        theme: {
-            primary_color: parsed.theme?.primary_color || '',
-            background_color: parsed.theme?.background_color || '',
-            card_color: parsed.theme?.card_color || '',
-            text_color: parsed.theme?.text_color || '',
-            font_family: parsed.theme?.font_family || ''
-        },
-        services: [],
-        widgets: []
-    };
-
-    // Normalize services
-    if (Array.isArray(parsed.services)) {
-        config.services = parsed.services.map(section => ({
-            name: section.name || '',
-            items: Array.isArray(section.items) ? section.items.map(item => ({
-                name: item.name || '',
-                url: item.url || '',
-                icon: item.icon || '',
-                icon_text: item.icon_text || '',
-                description: item.description || '',
-                target: item.target || ''
-            })) : []
-        }));
-    }
-
-    // Normalize widgets
-    if (Array.isArray(parsed.widgets)) {
-        config.widgets = parsed.widgets.map(widget => ({
-            type: widget.type || '',
-            title: widget.title || '',
-            config: widget.config && typeof widget.config === 'object' ? widget.config : {}
-        }));
-    }
-
-    return config;
-}
 
 // Save configuration
 async function saveConfig() {
@@ -441,6 +325,16 @@ async function saveConfig() {
         text_color: document.getElementById('textColor').value,
         font_family: fontFamily
     };
+
+    // Update layout from slider
+    const layoutSlider = document.getElementById('layoutSlider');
+    if (layoutSlider) {
+        const widgetCols = parseInt(layoutSlider.value);
+        currentConfig.layout = {
+            widget_columns: widgetCols,
+            service_columns: 12 - widgetCols
+        };
+    }
 
     try {
         const response = await fetch('/api/config', {
@@ -487,8 +381,7 @@ async function clearFonts() {
 
             // Update current config
             currentConfig.theme.font_family = 'system';
-            updateYamlEditor();
-
+        
             // Save the updated config
             await saveConfigSilently();
 

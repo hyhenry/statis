@@ -102,6 +102,22 @@
                         </div>
                     </div>
 
+                    <!-- Layout Settings -->
+                    <div class="settings-card">
+                        <h4>Layout</h4>
+                        <div class="row">
+                            <div class="twelve columns">
+                                <label>Column Distribution</label>
+                                <div class="layout-slider-container">
+                                    <span class="layout-label">Widgets: <span id="widgetColsLabel">{{if .Layout.WidgetColumns}}{{.Layout.WidgetColumns}}{{else}}4{{end}}</span></span>
+                                    <input type="range" id="layoutSlider" min="2" max="6" value="{{if .Layout.WidgetColumns}}{{.Layout.WidgetColumns}}{{else}}4{{end}}" class="layout-slider">
+                                    <span class="layout-label">Services: <span id="serviceColsLabel">{{if .Layout.ServiceColumns}}{{.Layout.ServiceColumns}}{{else}}8{{end}}</span></span>
+                                </div>
+                                <p class="help-text">Adjust the width ratio between widgets and services columns (total: 12)</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Services Editor -->
                     <div class="settings-card">
                         <h4>Services</h4>
@@ -120,13 +136,6 @@
                         <button class="button" onclick="addWidget()">+ Add Widget</button>
                     </div>
 
-                    <!-- YAML Editor Button -->
-                    <div class="settings-card">
-                        <h4>Raw YAML Configuration</h4>
-                        <p class="help-text">Advanced: Edit the raw YAML configuration directly</p>
-                        <button class="button" onclick="openYamlModal()">📝 Edit Raw YAML</button>
-                    </div>
-
                     <!-- Save Button -->
                     <div class="row" style="margin-top: 2rem;">
                         <div class="twelve columns">
@@ -139,25 +148,6 @@
         </section>
     </div>
 
-    <!-- YAML Editor Modal -->
-    <div id="yamlModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4>Edit Raw YAML Configuration</h4>
-                <button class="modal-close" onclick="closeYamlModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <textarea class="u-full-width yaml-editor" id="yamlEditor" rows="25"></textarea>
-            </div>
-            <div class="modal-footer">
-                <button class="button" onclick="closeYamlModal()">Cancel</button>
-                <button class="button button-primary" onclick="saveFromYaml()">💾 Save YAML</button>
-                <span id="yaml-save-status"></span>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <script src="/static/js/settings.js"></script>
 </body>
 </html>
