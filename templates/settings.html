@@ -51,97 +51,103 @@
                         </div>
                     </div>
 
-                    <!-- Theme Settings -->
-                    <div class="settings-card">
-                        <h4>Theme</h4>
-                        <div class="row">
-                            <div class="three columns">
-                                <label for="primaryColor">Primary Color</label>
-                                <input class="u-full-width" type="color" id="primaryColor" value="{{.Theme.PrimaryColor}}">
-                            </div>
-                            <div class="three columns">
-                                <label for="secondaryColor">Secondary Color</label>
-                                <input class="u-full-width" type="color" id="secondaryColor" value="{{.Theme.SecondaryColor}}">
-                            </div>
-                            <div class="three columns">
-                                <label for="bgColor">Background</label>
-                                <input class="u-full-width" type="color" id="bgColor" value="{{.Theme.BackgroundColor}}">
-                            </div>
-                            <div class="three columns">
-                                <label for="cardColor">Card Color</label>
-                                <input class="u-full-width" type="color" id="cardColor" value="{{.Theme.CardColor}}">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="three columns">
-                                <label for="textColor">Text Color</label>
-                                <input class="u-full-width" type="color" id="textColor" value="{{.Theme.TextColor}}">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="six columns">
-                                <label for="fontFamily">Font Family</label>
-                                <select class="u-full-width" id="fontFamily">
-                                    <option value="system" {{if eq .Theme.FontFamily "system"}}selected{{end}}>System Default</option>
-                                    <option value="Arial" {{if eq .Theme.FontFamily "Arial"}}selected{{end}}>Arial</option>
-                                    <option value="Helvetica" {{if eq .Theme.FontFamily "Helvetica"}}selected{{end}}>Helvetica</option>
-                                    <option value="Georgia" {{if eq .Theme.FontFamily "Georgia"}}selected{{end}}>Georgia</option>
-                                    <option value="Times New Roman" {{if eq .Theme.FontFamily "Times New Roman"}}selected{{end}}>Times New Roman</option>
-                                    <option value="Courier New" {{if eq .Theme.FontFamily "Courier New"}}selected{{end}}>Courier New</option>
-                                    <option value="Verdana" {{if eq .Theme.FontFamily "Verdana"}}selected{{end}}>Verdana</option>
-                                    <option value="Trebuchet MS" {{if eq .Theme.FontFamily "Trebuchet MS"}}selected{{end}}>Trebuchet MS</option>
-                                    <option value="Impact" {{if eq .Theme.FontFamily "Impact"}}selected{{end}}>Impact</option>
-                                    <option value="custom">Custom Google Font...</option>
-                                </select>
-                                <p class="help-text">Choose a web-safe font or use a custom Google Font</p>
-                            </div>
-                            <div class="six columns">
-                                <label for="customFont">Custom Google Font</label>
-                                <input class="u-full-width" type="text" id="customFont" placeholder="Enter Google Font name (e.g., Roboto, Inter)">
-                                <p class="help-text">Font will be downloaded and saved for offline use</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Layout Settings -->
-                    <div class="settings-card">
-                        <h4>Layout</h4>
-                        <div class="row">
-                            <div class="twelve columns">
-                                <label>Column Distribution</label>
-                                <div class="layout-slider-container">
-                                    <span class="layout-label">Widgets: <span id="widgetColsLabel">{{if .Layout.WidgetColumns}}{{.Layout.WidgetColumns}}{{else}}4{{end}}</span></span>
-                                    <input type="range" id="layoutSlider" min="2" max="6" value="{{if .Layout.WidgetColumns}}{{.Layout.WidgetColumns}}{{else}}4{{end}}" class="layout-slider">
-                                    <span class="layout-label">Services: <span id="serviceColsLabel">{{if .Layout.ServiceColumns}}{{.Layout.ServiceColumns}}{{else}}8{{end}}</span></span>
+                    <!-- Theme and Layout Settings Row -->
+                    <div class="row settings-row">
+                        <div class="six columns">
+                            <!-- Theme Settings -->
+                            <div class="settings-card">
+                                <h4>Theme</h4>
+                                <div class="row">
+                                    <div class="four columns">
+                                        <label for="primaryColor">Primary Color</label>
+                                        <input class="u-full-width" type="color" id="primaryColor" value="{{.Theme.PrimaryColor}}">
+                                    </div>
+                                    <div class="four columns">
+                                        <label for="secondaryColor">Secondary Color</label>
+                                        <input class="u-full-width" type="color" id="secondaryColor" value="{{.Theme.SecondaryColor}}">
+                                    </div>
+                                    <div class="four columns">
+                                        <label for="bgColor">Background</label>
+                                        <input class="u-full-width" type="color" id="bgColor" value="{{.Theme.BackgroundColor}}">
+                                    </div>
                                 </div>
-                                <p class="help-text">Adjust the width ratio between widgets and services columns (total: 12)</p>
+                                <div class="row">
+                                    <div class="four columns">
+                                        <label for="cardColor">Card Color</label>
+                                        <input class="u-full-width" type="color" id="cardColor" value="{{.Theme.CardColor}}">
+                                    </div>
+                                    <div class="four columns">
+                                        <label for="textColor">Text Color</label>
+                                        <input class="u-full-width" type="color" id="textColor" value="{{.Theme.TextColor}}">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="six columns">
+                                        <label for="fontFamily">Font Family</label>
+                                        <select class="u-full-width" id="fontFamily">
+                                            <option value="system" {{if eq .Theme.FontFamily "system"}}selected{{end}}>System Default</option>
+                                            <option value="Arial" {{if eq .Theme.FontFamily "Arial"}}selected{{end}}>Arial</option>
+                                            <option value="Helvetica" {{if eq .Theme.FontFamily "Helvetica"}}selected{{end}}>Helvetica</option>
+                                            <option value="Georgia" {{if eq .Theme.FontFamily "Georgia"}}selected{{end}}>Georgia</option>
+                                            <option value="Times New Roman" {{if eq .Theme.FontFamily "Times New Roman"}}selected{{end}}>Times New Roman</option>
+                                            <option value="Courier New" {{if eq .Theme.FontFamily "Courier New"}}selected{{end}}>Courier New</option>
+                                            <option value="Verdana" {{if eq .Theme.FontFamily "Verdana"}}selected{{end}}>Verdana</option>
+                                            <option value="Trebuchet MS" {{if eq .Theme.FontFamily "Trebuchet MS"}}selected{{end}}>Trebuchet MS</option>
+                                            <option value="Impact" {{if eq .Theme.FontFamily "Impact"}}selected{{end}}>Impact</option>
+                                            <option value="custom">Custom Google Font...</option>
+                                        </select>
+                                        <p class="help-text">Choose a web-safe font or use a custom Google Font</p>
+                                    </div>
+                                    <div class="six columns">
+                                        <label for="customFont">Custom Google Font</label>
+                                        <input class="u-full-width" type="text" id="customFont" placeholder="Enter Google Font name (e.g., Roboto, Inter)">
+                                        <p class="help-text">Font will be downloaded and saved for offline use</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="row" style="margin-top: 1.5rem;">
-                            <div class="twelve columns">
-                                <label>Service Cards Per Row</label>
-                                <div class="layout-slider-container">
-                                    <span class="layout-label"><span id="cardsPerRowLabel">{{if .Layout.CardsPerRow}}{{.Layout.CardsPerRow}}{{else}}3{{end}}</span> cards</span>
-                                    <input type="range" id="cardsPerRowSlider" min="1" max="5" value="{{if .Layout.CardsPerRow}}{{.Layout.CardsPerRow}}{{else}}3{{end}}" class="layout-slider">
+                        <div class="six columns">
+                            <!-- Layout Settings -->
+                            <div class="settings-card">
+                                <h4>Layout</h4>
+                                <div class="row">
+                                    <div class="twelve columns">
+                                        <label>Column Distribution</label>
+                                        <div class="layout-slider-container">
+                                            <span class="layout-label">Widgets: <span id="widgetColsLabel">{{if .Layout.WidgetColumns}}{{.Layout.WidgetColumns}}{{else}}4{{end}}</span></span>
+                                            <input type="range" id="layoutSlider" min="2" max="6" value="{{if .Layout.WidgetColumns}}{{.Layout.WidgetColumns}}{{else}}4{{end}}" class="layout-slider">
+                                            <span class="layout-label">Services: <span id="serviceColsLabel">{{if .Layout.ServiceColumns}}{{.Layout.ServiceColumns}}{{else}}8{{end}}</span></span>
+                                        </div>
+                                        <p class="help-text">Adjust the width ratio between widgets and services columns (total: 12)</p>
+                                    </div>
                                 </div>
-                                <p class="help-text">Number of service cards displayed per row</p>
+                                <div class="row" style="margin-top: 1.5rem;">
+                                    <div class="twelve columns">
+                                        <label>Service Cards Per Row</label>
+                                        <div class="layout-slider-container">
+                                            <span class="layout-label"><span id="cardsPerRowLabel">{{if .Layout.CardsPerRow}}{{.Layout.CardsPerRow}}{{else}}3{{end}}</span> cards</span>
+                                            <input type="range" id="cardsPerRowSlider" min="1" max="5" value="{{if .Layout.CardsPerRow}}{{.Layout.CardsPerRow}}{{else}}3{{end}}" class="layout-slider">
+                                        </div>
+                                        <p class="help-text">Number of service cards displayed per row</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Services Editor -->
-                    <div class="settings-card">
+                    <div class="settings-card settings-card-scrollable">
                         <h4>Services</h4>
-                        <div id="services-editor">
+                        <div id="services-editor" class="scrollable-content">
                             <!-- Populated by JavaScript -->
                         </div>
                         <button class="button" onclick="addSection()">+ Add Section</button>
                     </div>
 
                     <!-- Widgets Editor -->
-                    <div class="settings-card">
+                    <div class="settings-card settings-card-scrollable">
                         <h4>Widgets</h4>
-                        <div id="widgets-editor">
+                        <div id="widgets-editor" class="scrollable-content">
                             <!-- Populated by JavaScript -->
                         </div>
                         <button class="button" onclick="addWidget()">+ Add Widget</button>

@@ -603,6 +603,72 @@ h5 {
     cursor: pointer;
 }
 
+/* Settings row for side-by-side cards */
+.settings-row {
+    display: flex;
+    margin-bottom: 2rem;
+}
+
+.settings-row > .columns {
+    float: none;
+    flex: 1;
+    margin-left: 0;
+    display: flex;
+}
+
+.settings-row > .columns:first-child {
+    margin-right: 2rem;
+}
+
+.settings-row .settings-card {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+/* Scrollable settings cards for Services and Widgets */
+.settings-card-scrollable {
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-card-scrollable .scrollable-content {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.settings-card-scrollable .scrollable-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.settings-card-scrollable .scrollable-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.settings-card-scrollable .scrollable-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.settings-card-scrollable .scrollable-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive: stack cards on smaller screens */
+@media (max-width: 1000px) {
+    .settings-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .settings-row > .columns {
+        width: 100%;
+        margin-bottom: 2rem;
+    }
+}
+
 .back-link {
     color: var(--primary-color);
     text-decoration: none;
