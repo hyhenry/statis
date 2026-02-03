@@ -13,6 +13,7 @@
     <style>
         :root {
             --primary-color: {{.Theme.PrimaryColor}};
+            --secondary-color: {{.Theme.SecondaryColor}};
             --bg-color: {{.Theme.BackgroundColor}};
             --card-color: {{.Theme.CardColor}};
             --text-color: {{.Theme.TextColor}};
@@ -59,6 +60,10 @@
                                 <input class="u-full-width" type="color" id="primaryColor" value="{{.Theme.PrimaryColor}}">
                             </div>
                             <div class="three columns">
+                                <label for="secondaryColor">Secondary Color</label>
+                                <input class="u-full-width" type="color" id="secondaryColor" value="{{.Theme.SecondaryColor}}">
+                            </div>
+                            <div class="three columns">
                                 <label for="bgColor">Background</label>
                                 <input class="u-full-width" type="color" id="bgColor" value="{{.Theme.BackgroundColor}}">
                             </div>
@@ -66,6 +71,8 @@
                                 <label for="cardColor">Card Color</label>
                                 <input class="u-full-width" type="color" id="cardColor" value="{{.Theme.CardColor}}">
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="three columns">
                                 <label for="textColor">Text Color</label>
                                 <input class="u-full-width" type="color" id="textColor" value="{{.Theme.TextColor}}">

@@ -5,7 +5,8 @@ title: Home Lab
 subtitle: Welcome home
 
 theme:
-  primary_color: '#33c3f0'       # Accent color for titles and links
+  primary_color: '#33c3f0'       # Primary accent for buttons and highlights
+  secondary_color: '#33c3f0'     # Accent color for h5s and links
   background_color: '#1a1a2e'    # Page background
   card_color: '#16213e'          # Service card background
   text_color: '#eaeaea'          # Main text color

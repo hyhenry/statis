@@ -289,6 +289,11 @@ document.getElementById('primaryColor')?.addEventListener('change', (e) => {
     document.documentElement.style.setProperty('--primary-color', e.target.value);
 });
 
+document.getElementById('secondaryColor')?.addEventListener('change', (e) => {
+    currentConfig.theme.secondary_color = e.target.value;
+    document.documentElement.style.setProperty('--secondary-color', e.target.value);
+});
+
 document.getElementById('bgColor')?.addEventListener('change', (e) => {
     currentConfig.theme.background_color = e.target.value;
     document.documentElement.style.setProperty('--bg-color', e.target.value);
@@ -330,6 +335,7 @@ async function saveConfig() {
 
     currentConfig.theme = {
         primary_color: document.getElementById('primaryColor').value,
+        secondary_color: document.getElementById('secondaryColor').value,
         background_color: document.getElementById('bgColor').value,
         card_color: document.getElementById('cardColor').value,
         text_color: document.getElementById('textColor').value,

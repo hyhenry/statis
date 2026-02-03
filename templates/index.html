@@ -18,6 +18,7 @@
     <style>
         :root {
             --primary-color: {{.Theme.PrimaryColor}};
+            --secondary-color: {{.Theme.SecondaryColor}};
             --bg-color: {{.Theme.BackgroundColor}};
             --card-color: {{.Theme.CardColor}};
             --text-color: {{.Theme.TextColor}};
@@ -156,6 +157,7 @@
                 subtitle: parsed.subtitle || '',
                 theme: {
                     primary_color: parsed.theme?.primary_color || '',
+                    secondary_color: parsed.theme?.secondary_color || parsed.theme?.primary_color || '',
                     background_color: parsed.theme?.background_color || '',
                     card_color: parsed.theme?.card_color || '',
                     text_color: parsed.theme?.text_color || '',

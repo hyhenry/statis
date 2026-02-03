@@ -45,6 +45,7 @@ type Layout struct {
 
 type Theme struct {
 	PrimaryColor    string `yaml:"primary_color" json:"primary_color"`
+	SecondaryColor  string `yaml:"secondary_color" json:"secondary_color"`
 	BackgroundColor string `yaml:"background_color" json:"background_color"`
 	CardColor       string `yaml:"card_color" json:"card_color"`
 	TextColor       string `yaml:"text_color" json:"text_color"`
@@ -157,7 +158,15 @@ func loadConfig() error {
 		return err
 	}
 
-	return yaml.Unmarshal(data, &config)
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	if config.Theme.SecondaryColor == "" {
+		config.Theme.SecondaryColor = config.Theme.PrimaryColor
+	}
+
+	return nil
 }
 
 func saveConfig() error {
@@ -196,6 +205,10 @@ func reloadConfig() error {
 	var newConfig Config
 	if err := yaml.Unmarshal(data, &newConfig); err != nil {
 		return err
+	}
+
+	if newConfig.Theme.SecondaryColor == "" {
+		newConfig.Theme.SecondaryColor = newConfig.Theme.PrimaryColor
 	}
 
 	// Download Google Font if needed
@@ -259,6 +272,7 @@ func getDefaultConfig() Config {
 		Subtitle: "Welcome home",
 		Theme: Theme{
 			PrimaryColor:    "#33C3F0",
+			SecondaryColor:  "#33C3F0",
 			BackgroundColor: "#1a1a2e",
 			CardColor:       "#16213e",
 			TextColor:       "#eaeaea",
