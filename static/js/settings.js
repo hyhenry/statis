@@ -24,36 +24,45 @@ function initializeLayoutSlider() {
     const slider = document.getElementById('layoutSlider');
     const widgetLabel = document.getElementById('widgetColsLabel');
     const serviceLabel = document.getElementById('serviceColsLabel');
-
-    if (!slider) return;
+    const cardsSlider = document.getElementById('cardsPerRowSlider');
+    const cardsLabel = document.getElementById('cardsPerRowLabel');
 
     // Ensure layout exists in config
     if (!currentConfig.layout) {
-        currentConfig.layout = { widget_columns: 4, service_columns: 8 };
+        currentConfig.layout = { widget_columns: 4, service_columns: 8, cards_per_row: 3 };
     }
 
-    // Set initial value from config
-    slider.value = currentConfig.layout.widget_columns || 4;
-    updateLayoutLabels();
-
-    slider.addEventListener('input', function() {
+    // Column distribution slider
+    if (slider) {
+        slider.value = currentConfig.layout.widget_columns || 4;
         updateLayoutLabels();
-    });
 
-    slider.addEventListener('change', function() {
-        const widgetCols = parseInt(this.value);
-        const serviceCols = 12 - widgetCols;
-        currentConfig.layout = {
-            widget_columns: widgetCols,
-            service_columns: serviceCols
-        };
-    });
+        slider.addEventListener('input', updateLayoutLabels);
+        slider.addEventListener('change', function() {
+            currentConfig.layout.widget_columns = parseInt(this.value);
+            currentConfig.layout.service_columns = 12 - parseInt(this.value);
+        });
+    }
+
+    // Cards per row slider
+    if (cardsSlider) {
+        cardsSlider.value = currentConfig.layout.cards_per_row || 3;
+        if (cardsLabel) cardsLabel.textContent = cardsSlider.value;
+
+        cardsSlider.addEventListener('input', function() {
+            if (cardsLabel) cardsLabel.textContent = this.value;
+        });
+        cardsSlider.addEventListener('change', function() {
+            currentConfig.layout.cards_per_row = parseInt(this.value);
+        });
+    }
 
     function updateLayoutLabels() {
-        const widgetCols = parseInt(slider.value);
-        const serviceCols = 12 - widgetCols;
-        widgetLabel.textContent = widgetCols;
-        serviceLabel.textContent = serviceCols;
+        if (slider && widgetLabel && serviceLabel) {
+            const widgetCols = parseInt(slider.value);
+            widgetLabel.textContent = widgetCols;
+            serviceLabel.textContent = 12 - widgetCols;
+        }
     }
 }
 
@@ -326,15 +335,16 @@ async function saveConfig() {
         font_family: fontFamily
     };
 
-    // Update layout from slider
+    // Update layout from sliders
     const layoutSlider = document.getElementById('layoutSlider');
-    if (layoutSlider) {
-        const widgetCols = parseInt(layoutSlider.value);
-        currentConfig.layout = {
-            widget_columns: widgetCols,
-            service_columns: 12 - widgetCols
-        };
-    }
+    const cardsSlider = document.getElementById('cardsPerRowSlider');
+    const widgetCols = layoutSlider ? parseInt(layoutSlider.value) : (currentConfig.layout?.widget_columns || 4);
+    const cardsPerRow = cardsSlider ? parseInt(cardsSlider.value) : (currentConfig.layout?.cards_per_row || 3);
+    currentConfig.layout = {
+        widget_columns: widgetCols,
+        service_columns: 12 - widgetCols,
+        cards_per_row: cardsPerRow
+    };
 
     try {
         const response = await fetch('/api/config', {

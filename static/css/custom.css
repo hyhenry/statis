@@ -77,10 +77,15 @@ body {
     margin-bottom: 3rem;
 }
 
-/* Fix for grid alignment - remove left margin from 1st, 4th, 7th cards (3 per row) */
-.services-section .row .four.columns:nth-child(3n+1) {
-    margin-left: 0;
-    clear: left;
+/* Dynamic grid for service cards */
+.service-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cards-per-row, 3), 1fr);
+    gap: 1.5rem;
+}
+
+.service-card-wrapper {
+    min-width: 0; /* Prevent grid blowout */
 }
 
 .service-card {
@@ -89,7 +94,6 @@ body {
     background-color: var(--card-color);
     border-radius: 8px;
     padding: 1.2rem;
-    margin-bottom: 1.5rem;
     text-decoration: none;
     color: var(--text-color);
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
@@ -713,23 +717,27 @@ body {
         margin-left: 0;
     }
 
+    .service-cards-grid {
+        grid-template-columns: 1fr;
+    }
+
     .service-card {
         padding: 1rem;
     }
-    
+
     .service-icon {
         width: 40px;
         height: 40px;
     }
-    
+
     .icon-text {
         font-size: 20px;
     }
-    
+
     .service-name {
         font-size: 1.3rem;
     }
-    
+
     .header .button {
         padding: 0 15px;
     }

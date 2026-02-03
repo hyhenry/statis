@@ -39,6 +39,7 @@ type Config struct {
 type Layout struct {
 	WidgetColumns  int `yaml:"widget_columns" json:"widget_columns"`
 	ServiceColumns int `yaml:"service_columns" json:"service_columns"`
+	CardsPerRow    int `yaml:"cards_per_row" json:"cards_per_row"`
 }
 
 type Theme struct {
@@ -264,6 +265,7 @@ func getDefaultConfig() Config {
 		Layout: Layout{
 			WidgetColumns:  4,
 			ServiceColumns: 8,
+			CardsPerRow:    3,
 		},
 		Services: []Section{
 			{

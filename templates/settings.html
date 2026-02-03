@@ -116,6 +116,16 @@
                                 <p class="help-text">Adjust the width ratio between widgets and services columns (total: 12)</p>
                             </div>
                         </div>
+                        <div class="row" style="margin-top: 1.5rem;">
+                            <div class="twelve columns">
+                                <label>Service Cards Per Row</label>
+                                <div class="layout-slider-container">
+                                    <span class="layout-label"><span id="cardsPerRowLabel">{{if .Layout.CardsPerRow}}{{.Layout.CardsPerRow}}{{else}}3{{end}}</span> cards</span>
+                                    <input type="range" id="cardsPerRowSlider" min="1" max="5" value="{{if .Layout.CardsPerRow}}{{.Layout.CardsPerRow}}{{else}}3{{end}}" class="layout-slider">
+                                </div>
+                                <p class="help-text">Number of service cards displayed per row</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Services Editor -->
