@@ -176,6 +176,14 @@
             <div class="icon-picker-search">
                 <input type="text" id="icon-search" class="u-full-width" placeholder="Search icons...">
             </div>
+            <div class="icon-upload-area" id="icon-upload-area">
+                <input type="file" id="icon-upload-input" accept=".svg,.png,.jpg,.jpeg,.gif,.webp" style="display: none;">
+                <div class="icon-upload-dropzone" id="icon-upload-dropzone">
+                    <span class="upload-icon">📁</span>
+                    <span class="upload-text">Drop an image here or <button type="button" class="upload-browse-btn" onclick="document.getElementById('icon-upload-input').click()">browse</button></span>
+                    <span class="upload-formats">SVG, PNG, JPG, GIF, WebP (max 5MB)</span>
+                </div>
+            </div>
             <div class="icon-picker-grid" id="icon-grid">
                 <!-- Icons populated by JavaScript -->
             </div>

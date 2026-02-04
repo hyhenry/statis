@@ -608,3 +608,117 @@ document.addEventListener('keydown', function(e) {
         closeIconPicker();
     }
 });
+
+// Icon Upload functionality
+function initializeIconUpload() {
+    const dropzone = document.getElementById('icon-upload-dropzone');
+    const fileInput = document.getElementById('icon-upload-input');
+
+    if (!dropzone || !fileInput) return;
+
+    // Drag and drop events
+    dropzone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleIconUpload(files[0]);
+        }
+    });
+
+    // File input change event
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            handleIconUpload(this.files[0]);
+            this.value = ''; // Reset input for next upload
+        }
+    });
+}
+
+async function handleIconUpload(file) {
+    const { sectionIndex, itemIndex } = iconPickerState;
+
+    if (sectionIndex === null || itemIndex === null) {
+        alert('Please select a service first');
+        return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    const allowedExts = ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+
+    if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
+        alert('Invalid file type. Allowed: SVG, PNG, JPG, GIF, WebP');
+        return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('File too large. Maximum size is 5MB.');
+        return;
+    }
+
+    // Show uploading state
+    const dropzone = document.getElementById('icon-upload-dropzone');
+    const originalContent = dropzone.innerHTML;
+    dropzone.innerHTML = '<span class="upload-text">Uploading...</span>';
+
+    try {
+        const formData = new FormData();
+        formData.append('icon', file);
+
+        const response = await fetch('/api/icons/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Upload failed');
+        }
+
+        const result = await response.json();
+        const iconPath = result.path;
+
+        // Update the config
+        currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
+
+        // Update the input field
+        const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
+        if (input) {
+            input.value = iconPath;
+        }
+
+        // Re-render to show preview
+        renderServicesEditor();
+
+        closeIconPicker();
+    } catch (error) {
+        console.error('Failed to upload icon:', error);
+        alert('Failed to upload icon: ' + (error.message || 'Unknown error'));
+        dropzone.innerHTML = originalContent;
+    }
+}
+
+// Initialize upload when modal opens
+const originalOpenIconPicker = openIconPicker;
+openIconPicker = function(sectionIndex, itemIndex) {
+    originalOpenIconPicker(sectionIndex, itemIndex);
+    // Re-initialize upload handlers each time modal opens
+    setTimeout(initializeIconUpload, 0);
+};

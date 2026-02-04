@@ -147,6 +147,7 @@ func main() {
 	mux.HandleFunc("/api/assets/clean-unused", handleCleanUnusedAssets)
 	mux.HandleFunc("/api/icons/search", handleIconSearch)
 	mux.HandleFunc("/api/icons/download", handleIconDownload)
+	mux.HandleFunc("/api/icons/upload", handleIconUpload)
 
 	// Get port from environment or default to 8080
 	port := os.Getenv("PORT")
@@ -1043,6 +1044,98 @@ func handleIconDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✓ Downloaded icon: %s", iconFileName)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "ok",
+		"path":   "/icons/" + iconFileName,
+	})
+}
+
+func handleIconUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Limit upload size to 5MB
+	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
+
+	// Parse multipart form
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		http.Error(w, "File too large (max 5MB)", http.StatusBadRequest)
+		return
+	}
+
+	// Get uploaded file
+	file, header, err := r.FormFile("icon")
+	if err != nil {
+		http.Error(w, "Missing icon file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Validate file type by extension
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	allowedExts := map[string]bool{
+		".svg":  true,
+		".png":  true,
+		".jpg":  true,
+		".jpeg": true,
+		".gif":  true,
+		".webp": true,
+	}
+	if !allowedExts[ext] {
+		http.Error(w, "Invalid file type (allowed: svg, png, jpg, jpeg, gif, webp)", http.StatusBadRequest)
+		return
+	}
+
+	// Create icons directory if it doesn't exist
+	iconsDir := "./icons"
+	if err := os.MkdirAll(iconsDir, 0755); err != nil {
+		http.Error(w, "Failed to create icons directory", http.StatusInternalServerError)
+		return
+	}
+
+	// Sanitize filename - remove path components and keep only alphanumeric, dash, underscore
+	baseName := filepath.Base(header.Filename)
+	baseName = strings.TrimSuffix(baseName, ext)
+	// Replace spaces with dashes and remove unsafe characters
+	safeName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(baseName, "-")
+	safeName = regexp.MustCompile(`-+`).ReplaceAllString(safeName, "-")
+	safeName = strings.Trim(safeName, "-")
+	if safeName == "" {
+		safeName = "icon"
+	}
+
+	// Check for existing file and generate unique name if needed
+	iconFileName := safeName + ext
+	iconPath := filepath.Join(iconsDir, iconFileName)
+	counter := 1
+	for {
+		if _, err := os.Stat(iconPath); os.IsNotExist(err) {
+			break
+		}
+		iconFileName = fmt.Sprintf("%s-%d%s", safeName, counter, ext)
+		iconPath = filepath.Join(iconsDir, iconFileName)
+		counter++
+	}
+
+	// Create the destination file
+	dst, err := os.Create(iconPath)
+	if err != nil {
+		http.Error(w, "Failed to save icon", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	// Copy uploaded file to destination
+	if _, err := io.Copy(dst, file); err != nil {
+		http.Error(w, "Failed to save icon", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✓ Uploaded icon: %s", iconFileName)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
