@@ -101,16 +101,16 @@ function renderServicesEditor() {
 
     currentConfig.services.forEach((section, sectionIndex) => {
         const sectionEl = document.createElement('div');
-        sectionEl.className = 'editor-item';
+        sectionEl.className = 'section-editor-card';
         sectionEl.innerHTML = `
-            <div class="editor-item-header">
-                <input type="text" value="${escapeHtml(section.name)}" 
-                    placeholder="Section Name" 
+            <div class="section-editor-header">
+                <input type="text" value="${escapeHtml(section.name)}"
+                    placeholder="Section Name"
                     onchange="updateSectionName(${sectionIndex}, this.value)"
                     style="margin: 0; font-weight: bold;">
                 <button class="button remove-btn" onclick="removeSection(${sectionIndex})">Remove</button>
             </div>
-            <div id="section-${sectionIndex}-items">
+            <div class="section-items-scroll" id="section-${sectionIndex}-items">
                 ${section.items.map((item, itemIndex) => renderItemEditor(sectionIndex, itemIndex, item)).join('')}
             </div>
             <button class="button add-item-btn" onclick="addItem(${sectionIndex})">+ Add Service</button>
@@ -124,38 +124,42 @@ function renderItemEditor(sectionIndex, itemIndex, item) {
         ? `<img src="${escapeHtml(item.icon)}" class="icon-preview" alt="icon">`
         : '';
     return `
-        <div class="row" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
-            <div class="four columns">
-                <label>Name</label>
-                <input type="text" class="u-full-width" value="${escapeHtml(item.name)}"
-                    onchange="updateItem(${sectionIndex}, ${itemIndex}, 'name', this.value)">
+        <div class="service-item-editor" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+            <div class="row">
+                <div class="three columns">
+                    <label>Name</label>
+                    <input type="text" class="u-full-width" value="${escapeHtml(item.name)}"
+                        onchange="updateItem(${sectionIndex}, ${itemIndex}, 'name', this.value)">
+                </div>
+                <div class="three columns">
+                    <label>URL</label>
+                    <input type="url" class="u-full-width" value="${escapeHtml(item.url)}"
+                        onchange="updateItem(${sectionIndex}, ${itemIndex}, 'url', this.value)">
+                </div>
+                <div class="five columns">
+                    <label>Description</label>
+                    <input type="text" class="u-full-width" value="${escapeHtml(item.description || '')}"
+                        onchange="updateItem(${sectionIndex}, ${itemIndex}, 'description', this.value)">
+                </div>
+                <div class="one column">
+                    <label>&nbsp;</label>
+                    <button class="button remove-btn u-full-width" onclick="removeItem(${sectionIndex}, ${itemIndex})">×</button>
+                </div>
             </div>
-            <div class="four columns">
-                <label>URL</label>
-                <input type="url" class="u-full-width" value="${escapeHtml(item.url)}"
-                    onchange="updateItem(${sectionIndex}, ${itemIndex}, 'url', this.value)">
-            </div>
-            <div class="two columns">
-                <label>Icon (emoji)</label>
-                <input type="text" class="u-full-width" value="${escapeHtml(item.icon_text || '')}"
-                    onchange="updateItem(${sectionIndex}, ${itemIndex}, 'icon_text', this.value)">
-            </div>
-            <div class="two columns">
-                <label>&nbsp;</label>
-                <button class="button remove-btn u-full-width" onclick="removeItem(${sectionIndex}, ${itemIndex})">×</button>
-            </div>
-            <div class="six columns">
-                <label>Description</label>
-                <input type="text" class="u-full-width" value="${escapeHtml(item.description || '')}"
-                    onchange="updateItem(${sectionIndex}, ${itemIndex}, 'description', this.value)">
-            </div>
-            <div class="six columns">
-                <label>Icon Image</label>
-                <div class="icon-input-group">
-                    ${iconPreview}
-                    <input type="text" id="icon-${sectionIndex}-${itemIndex}" value="${escapeHtml(item.icon || '')}"
-                        onchange="updateItem(${sectionIndex}, ${itemIndex}, 'icon', this.value)" placeholder="Icon path or URL">
-                    <button class="button" onclick="openIconPicker(${sectionIndex}, ${itemIndex})">Browse</button>
+            <div class="row">
+                <div class="two columns">
+                    <label>Icon (emoji)</label>
+                    <input type="text" class="u-full-width" value="${escapeHtml(item.icon_text || '')}"
+                        onchange="updateItem(${sectionIndex}, ${itemIndex}, 'icon_text', this.value)">
+                </div>
+                <div class="ten columns">
+                    <label>Icon Image</label>
+                    <div class="icon-input-group">
+                        ${iconPreview}
+                        <input type="text" id="icon-${sectionIndex}-${itemIndex}" value="${escapeHtml(item.icon || '')}"
+                            onchange="updateItem(${sectionIndex}, ${itemIndex}, 'icon', this.value)" placeholder="Icon path or URL">
+                        <button class="button" onclick="openIconPicker(${sectionIndex}, ${itemIndex})">Browse</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -168,14 +172,15 @@ function renderWidgetsEditor() {
 
     currentConfig.widgets.forEach((widget, index) => {
         const widgetEl = document.createElement('div');
-        widgetEl.className = 'editor-item';
-        
+        widgetEl.className = 'widget-editor-card';
+
         const configPairs = Object.entries(widget.config || {})
             .map(([k, v]) => `${k}: ${v}`)
             .join('\n');
 
+        const isHeader = widget.type === 'header';
         widgetEl.innerHTML = `
-            <div class="editor-item-header">
+            <div class="widget-editor-header">
                 <h5>${escapeHtml(widget.title || 'Widget')}</h5>
                 <button class="button remove-btn" onclick="removeWidget(${index})">Remove</button>
             </div>
@@ -193,16 +198,17 @@ function renderWidgetsEditor() {
                 </div>
                 <div class="eight columns">
                     <label>Title</label>
-                    <input type="text" class="u-full-width" value="${escapeHtml(widget.title)}" 
+                    <input type="text" class="u-full-width" value="${escapeHtml(widget.title)}"
                         onchange="updateWidget(${index}, 'title', this.value)">
                 </div>
             </div>
             <div class="row">
                 <div class="twelve columns">
                     <label>Config (key: value, one per line)</label>
-                    <textarea class="u-full-width" rows="3" 
+                    <textarea class="u-full-width" rows="3"
                         onchange="updateWidgetConfig(${index}, this.value)"
-                        placeholder="url: https://example.com&#10;slug: status">${escapeHtml(configPairs)}</textarea>
+                        placeholder="url: https://example.com&#10;slug: status"
+                        ${isHeader ? 'disabled' : ''}>${escapeHtml(configPairs)}</textarea>
                 </div>
             </div>
         `;
