@@ -377,7 +377,8 @@ func handleAPIConfig(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPut:
 		var newConfig Config
 		if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			log.Printf("❌ Failed to decode config JSON: %v", err)
+			http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -386,10 +387,12 @@ func handleAPIConfig(w http.ResponseWriter, r *http.Request) {
 		configMu.Unlock()
 
 		if err := saveConfig(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Printf("❌ Failed to save config: %v", err)
+			http.Error(w, "Failed to save: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
+		log.Printf("✓ Config saved successfully")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 
 	default:

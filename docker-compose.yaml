@@ -8,7 +8,9 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./config.yaml:/config/config.yaml
+      - ./config:/config
+      - ./fonts:/app/fonts
+      - ./icons:/app/icons
     environment:
       - PORT=8080
       - CONFIG_PATH=/config/config.yaml

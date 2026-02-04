@@ -23,8 +23,8 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/statis .
 
-# Create config directory
-RUN mkdir -p /config
+# Create directories for config, fonts, and icons
+RUN mkdir -p /config /app/fonts /app/icons
 
 # Environment variables
 ENV PORT=8080

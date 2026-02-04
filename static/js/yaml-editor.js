@@ -100,10 +100,11 @@ async function saveFromYaml() {
                 window.location.reload();
             }, 1000);
         } else {
-            throw new Error('Save failed');
+            const errorText = await response.text();
+            throw new Error(errorText || 'Save failed');
         }
     } catch (error) {
-        statusEl.textContent = 'Invalid YAML or save failed: ' + error.message;
+        statusEl.textContent = 'Error: ' + error.message;
         statusEl.style.color = '#e74c3c';
         console.error('Save YAML error:', error);
     }

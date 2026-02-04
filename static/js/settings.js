@@ -379,10 +379,11 @@ async function saveConfig() {
             statusEl.style.color = '#2ecc71';
             setTimeout(() => { statusEl.textContent = ''; }, 3000);
         } else {
-            throw new Error('Save failed');
+            const errorText = await response.text();
+            throw new Error(errorText || 'Save failed');
         }
     } catch (error) {
-        statusEl.textContent = '✗ Save failed';
+        statusEl.textContent = '✗ ' + (error.message || 'Save failed');
         statusEl.style.color = '#e74c3c';
         console.error('Save error:', error);
     }
