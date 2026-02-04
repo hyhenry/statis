@@ -20,6 +20,9 @@
     --scrollbar-track: rgba(255, 255, 255, 0.05);
     --scrollbar-thumb: rgba(255, 255, 255, 0.2);
     --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+
+    /* Card sizing */
+    --card-content-height: 40px;
 }
 
 /* Base overrides */
@@ -50,14 +53,14 @@ h5 {
 .container {
     width: 90%;
     max-width: none;
-    padding: 20px;
+    padding: 15px;
     margin: 0 auto;
 }
 
 /* Header */
 .header {
-    padding: 1rem 0;
-    margin-bottom: 2rem;
+    padding: 0.75rem 0;
+    margin-bottom: 1.25rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -72,13 +75,13 @@ h5 {
     color: var(--primary-color);
     margin-bottom: 0;
     font-weight: 600;
-    font-size: 2.5rem;
+    font-size: 2.2rem;
 }
 
 .subtitle {
     color: rgba(255, 255, 255, 0.6);
-    font-size: 1.4rem;
-    margin: 0.2rem 0 0 0;
+    font-size: 1.3rem;
+    margin: 0.15rem 0 0 0;
 }
 
 /* Header Icon Buttons */
@@ -115,22 +118,22 @@ h5 {
 .section-title {
     color: var(--primary-color);
     font-weight: 500;
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.5rem;
-    font-size: 2.0rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.35rem;
+    font-size: 1.8rem;
     display: inline-block;
 }
 
 /* Service Cards */
 .services-section {
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
 }
 
 /* Dynamic grid for service cards */
 .service-cards-grid {
     display: grid;
     grid-template-columns: repeat(var(--cards-per-row, 3), 1fr);
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 .service-card-wrapper {
@@ -142,7 +145,7 @@ h5 {
     align-items: center;
     background-color: var(--card-color);
     border-radius: 8px;
-    padding: 1.2rem;
+    padding: 0.9rem;
     text-decoration: none;
     color: var(--text-color);
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
@@ -158,24 +161,24 @@ h5 {
 
 .service-icon {
     flex-shrink: 0;
-    width: 48px;
-    height: 48px;
+    width: var(--card-content-height);
+    height: var(--card-content-height);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 1rem;
+    margin-right: 0.75rem;
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 .icon-img {
-    max-width: 32px;
-    max-height: 32px;
+    max-width: 28px;
+    max-height: 28px;
     object-fit: contain;
 }
 
 .icon-text {
-    font-size: 24px;
+    font-size: 20px;
 }
 
 .service-info {
@@ -185,7 +188,7 @@ h5 {
 
 .service-name {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 500;
     color: var(--secondary-color);
     white-space: nowrap;
@@ -194,8 +197,8 @@ h5 {
 }
 
 .service-desc {
-    margin: 0.3rem 0 0 0;
-    font-size: 1.2rem;
+    margin: 0.2rem 0 0 0;
+    font-size: 1.15rem;
     color: rgba(255, 255, 255, 0.5);
     white-space: nowrap;
     overflow: hidden;
@@ -204,14 +207,14 @@ h5 {
 
 /* Widgets */
 .widgets-section {
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
 }
 
 .widget {
     background-color: var(--card-color);
     border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -227,7 +230,7 @@ h5 {
 }
 
 .widget.collapsed {
-    padding: 1.2rem;
+    padding: 0.9rem;
 }
 
 .widget.collapsed .widget-header {
@@ -237,14 +240,14 @@ h5 {
 .widget-header {
     display: flex;
     align-items: center;
-    margin-bottom: 1rem;
-    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    gap: 0.4rem;
 }
 
 .widget-title {
     color: var(--primary-color);
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 500;
 }
 
@@ -258,8 +261,8 @@ h5 {
     transition: transform 0.2s ease;
     opacity: 0.7;
     margin-left: auto;
+    margin-top: 0.5rem;
     line-height: 1;
-    align-self: center;
 }
 
 .widget-toggle:hover {
@@ -380,20 +383,22 @@ h5 {
 
 /* Uptime Kuma Widget Specific */
 .widget[data-type="uptime-kuma"] {
-    padding: 1.2rem;
+    padding: 0.9rem;
 }
 
 .widget[data-type="uptime-kuma"].collapsed {
-    padding: 1.2rem;
+    padding: 0.9rem;
+    box-sizing: border-box;
+
 }
 
 .widget[data-type="uptime-kuma"] .widget-header {
     align-items: center;
-    min-height: 48px;
+    height: var(--card-content-height);
 }
 
 .widget[data-type="rss"] .widget-header {
-    min-height: 48px;
+    height: var(--card-content-height);
 }
 
 .widget[data-type="uptime-kuma"] .widget-title {
@@ -410,7 +415,7 @@ h5 {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.8rem 0;
+    padding: 0.6rem 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -460,8 +465,8 @@ h5 {
 
 .rss-item {
     display: flex;
-    gap: 1rem;
-    padding: 1rem 0;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -474,8 +479,8 @@ h5 {
 }
 
 .rss-thumb {
-    width: 72px;
-    height: 72px;
+    width: 60px;
+    height: 60px;
     flex-shrink: 0;
     border-radius: 6px;
     overflow: hidden;
@@ -531,9 +536,9 @@ h5 {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
-    margin-top: 1rem;
-    padding-top: 1rem;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -571,8 +576,8 @@ h5 {
 /* Footer */
 .footer {
     text-align: center;
-    padding: 2rem 0;
-    margin-top: 2rem;
+    padding: 1.25rem 0;
+    margin-top: 1.25rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.4);
     font-size: 1.2rem;
@@ -589,21 +594,21 @@ h5 {
 
 /* Settings Page */
 .settings-section {
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
 }
 
 .settings-card {
     background-color: var(--card-color);
     border-radius: 8px;
-    padding: 2rem;
-    margin-bottom: 2rem;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .settings-card h4 {
     color: var(--primary-color);
     margin-top: 0;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .settings-card label {
@@ -636,7 +641,7 @@ h5 {
 /* Settings row for side-by-side cards */
 .settings-row {
     display: flex;
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
 }
 
 .settings-row > .columns {
@@ -647,7 +652,7 @@ h5 {
 }
 
 .settings-row > .columns:first-child {
-    margin-right: 2rem;
+    margin-right: 1.25rem;
 }
 
 .settings-row .settings-card {
@@ -700,7 +705,7 @@ h5 {
 
     .settings-row > .columns {
         width: 100%;
-        margin-bottom: 2rem;
+        margin-bottom: 1.25rem;
     }
 }
 
@@ -719,15 +724,15 @@ h5 {
 .help-text {
     color: rgba(255, 255, 255, 0.5);
     font-size: 1.2rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 /* Layout Slider */
 .layout-slider-container {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
-    margin: 1rem 0;
+    gap: 1rem;
+    margin: 0.75rem 0;
 }
 
 .layout-slider {
@@ -789,7 +794,7 @@ h5 {
 #services-editor {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 @media (min-width: 1000px) {
@@ -801,7 +806,7 @@ h5 {
 .section-editor-card {
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: 1rem;
     margin-bottom: 0;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -810,14 +815,14 @@ h5 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .section-items-scroll {
     max-height: 300px;
     overflow-y: auto;
     padding-right: 0.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 /* Scrollbar styles consolidated above */
@@ -826,7 +831,7 @@ h5 {
 #widgets-editor {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 @media (min-width: 1000px) {
@@ -838,7 +843,7 @@ h5 {
 .widget-editor-card {
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: 1rem;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -846,7 +851,7 @@ h5 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .widget-editor-header h5 {
@@ -864,8 +869,8 @@ h5 {
 .editor-item {
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -873,7 +878,7 @@ h5 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .editor-item-header h5 {
@@ -973,7 +978,7 @@ h5 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem 2rem;
+    padding: 1rem 1.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -1004,7 +1009,7 @@ h5 {
 }
 
 .modal-body {
-    padding: 2rem;
+    padding: 1.5rem;
     flex: 1;
     overflow-y: auto;
     min-height: 0;
@@ -1018,12 +1023,12 @@ h5 {
 }
 
 .modal-footer {
-    padding: 1.5rem 2rem;
+    padding: 1rem 1.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 /* Icon Picker Modal */
@@ -1033,7 +1038,7 @@ h5 {
 }
 
 .icon-picker-search {
-    padding: 1rem 2rem;
+    padding: 0.75rem 1.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -1050,21 +1055,21 @@ h5 {
 
 /* Icon Upload Area */
 .icon-upload-area {
-    padding: 1rem 2rem;
+    padding: 0.75rem 1.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .icon-upload-dropzone {
     border: 2px dashed rgba(255, 255, 255, 0.2);
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: 1rem;
     text-align: center;
     cursor: pointer;
     transition: border-color 0.2s ease, background-color 0.2s ease;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .icon-upload-dropzone:hover {
@@ -1110,8 +1115,8 @@ h5 {
 .icon-picker-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 0.5rem;
-    padding: 1rem 2rem;
+    gap: 0.4rem;
+    padding: 0.75rem 1.5rem;
     overflow-y: auto;
     max-height: 400px;
     min-height: 200px;
@@ -1122,7 +1127,7 @@ h5 {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 0.75rem;
+    padding: 0.5rem;
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease;
@@ -1157,7 +1162,7 @@ h5 {
 }
 
 .icon-picker-footer {
-    padding: 1rem 2rem;
+    padding: 0.75rem 1.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     justify-content: space-between;
@@ -1203,6 +1208,8 @@ h5 {
 }
 
 /* Responsive adjustments */
+
+
 @media (max-width: 1000px) {
     .layout-row {
         display: flex;
@@ -1226,24 +1233,31 @@ h5 {
     }
 
     .service-card {
-        padding: 1rem;
+        padding: 0.75rem;
     }
 
     .service-icon {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
     }
 
     .icon-text {
-        font-size: 20px;
+        font-size: 18px;
     }
 
     .service-name {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
     }
 
     .header .button {
         padding: 0 15px;
+    }
+}
+
+@media (min-width: 1000px) {
+    .service-column {
+        margin-left: 2%;
+        width: 67.3333333333% !important;
     }
 }
 
