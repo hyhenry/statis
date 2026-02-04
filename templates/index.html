@@ -39,14 +39,16 @@
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <div class="row">
-                <div class="ten columns">
-                    <h1 class="title">{{.Title}}</h1>
-                    {{if .Subtitle}}<p class="subtitle">{{.Subtitle}}</p>{{end}}
-                </div>
-                <div class="two columns" style="text-align: right;">
-                    <button class="header-icon-btn" onclick="openYamlModal()" title="Edit Raw YAML"><i data-lucide="file-code"></i></button>
-                    <a href="/settings" class="header-icon-btn" title="Settings"><i data-lucide="settings"></i></a>
+            <div class="header-card">
+                <div class="row">
+                    <div class="ten columns">
+                        <h1 class="title">{{.Title}}</h1>
+                        {{if .Subtitle}}<p class="subtitle">{{.Subtitle}}</p>{{end}}
+                    </div>
+                    <div class="two columns" style="text-align: right;">
+                        <button class="header-icon-btn" onclick="openYamlModal()" title="Edit Raw YAML"><i data-lucide="file-code"></i></button>
+                        <a href="/settings" class="header-icon-btn" title="Settings"><i data-lucide="settings"></i></a>
+                    </div>
                 </div>
             </div>
         </header>
