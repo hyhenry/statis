@@ -44,9 +44,9 @@
                     <h1 class="title">{{.Title}}</h1>
                     {{if .Subtitle}}<p class="subtitle">{{.Subtitle}}</p>{{end}}
                 </div>
-                <div class="two columns" style="text-align: right; padding-top: 2rem;">
-                    <button class="header-icon-btn" onclick="openYamlModal()" title="Edit Raw YAML">📝</button>
-                    <a href="/settings" class="header-icon-btn" title="Settings">⚙️</a>
+                <div class="two columns" style="text-align: right;">
+                    <button class="header-icon-btn" onclick="openYamlModal()" title="Edit Raw YAML"><i data-lucide="file-code"></i></button>
+                    <a href="/settings" class="header-icon-btn" title="Settings"><i data-lucide="settings"></i></a>
                 </div>
             </div>
         </header>
@@ -126,6 +126,8 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>lucide.createIcons();</script>
     <script src="/static/js/widgets.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <script>
