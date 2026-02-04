@@ -435,13 +435,7 @@ async function saveConfigSilently() {
     }
 }
 
-// Utility function
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+// escapeHtml is provided by utils.js
 
 // Icon Picker
 let iconPickerState = {

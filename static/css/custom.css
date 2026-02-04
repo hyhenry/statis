@@ -7,6 +7,19 @@
     --bg-color: #1a1a2e;
     --card-color: #16213e;
     --text-color: #eaeaea;
+
+    /* Status indicator colors */
+    --status-up-color: #2ecc71;
+    --status-up-glow: rgba(46, 204, 113, 0.5);
+    --status-down-color: #e74c3c;
+    --status-down-glow: rgba(231, 76, 60, 0.5);
+    --status-pending-color: #f39c12;
+    --status-pending-glow: rgba(243, 156, 18, 0.5);
+
+    /* Scrollbar colors */
+    --scrollbar-track: rgba(255, 255, 255, 0.05);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
 }
 
 /* Base overrides */
@@ -344,18 +357,18 @@ h5 {
 }
 
 .overall-status-indicator.status-up {
-    background-color: #2ecc71;
-    box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+    background-color: var(--status-up-color);
+    box-shadow: 0 0 8px var(--status-up-glow);
 }
 
 .overall-status-indicator.status-down {
-    background-color: #e74c3c;
-    box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+    background-color: var(--status-down-color);
+    box-shadow: 0 0 8px var(--status-down-glow);
 }
 
 .overall-status-indicator.status-pending {
-    background-color: #f39c12;
-    box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+    background-color: var(--status-pending-color);
+    box-shadow: 0 0 8px var(--status-pending-glow);
 }
 
 .overall-status-text {
@@ -414,18 +427,18 @@ h5 {
 }
 
 .status-up {
-    background-color: #2ecc71;
-    box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+    background-color: var(--status-up-color);
+    box-shadow: 0 0 8px var(--status-up-glow);
 }
 
 .status-down {
-    background-color: #e74c3c;
-    box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+    background-color: var(--status-down-color);
+    box-shadow: 0 0 8px var(--status-down-glow);
 }
 
 .status-pending {
-    background-color: #f39c12;
-    box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+    background-color: var(--status-pending-color);
+    box-shadow: 0 0 8px var(--status-pending-glow);
 }
 
 .status-name {
@@ -655,22 +668,27 @@ h5 {
     margin-bottom: 1rem;
 }
 
-.settings-card-scrollable .scrollable-content::-webkit-scrollbar {
+/* Shared scrollbar styles */
+.settings-card-scrollable .scrollable-content::-webkit-scrollbar,
+.section-items-scroll::-webkit-scrollbar {
     width: 8px;
 }
 
-.settings-card-scrollable .scrollable-content::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+.settings-card-scrollable .scrollable-content::-webkit-scrollbar-track,
+.section-items-scroll::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
     border-radius: 4px;
 }
 
-.settings-card-scrollable .scrollable-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
+.settings-card-scrollable .scrollable-content::-webkit-scrollbar-thumb,
+.section-items-scroll::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
     border-radius: 4px;
 }
 
-.settings-card-scrollable .scrollable-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+.settings-card-scrollable .scrollable-content::-webkit-scrollbar-thumb:hover,
+.section-items-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
 }
 
 /* Responsive: stack cards on smaller screens */
@@ -802,23 +820,7 @@ h5 {
     margin-bottom: 1rem;
 }
 
-.section-items-scroll::-webkit-scrollbar {
-    width: 8px;
-}
-
-.section-items-scroll::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
-}
-
-.section-items-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-}
-
-.section-items-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
-}
+/* Scrollbar styles consolidated above */
 
 /* Widget Editor Cards */
 #widgets-editor {
