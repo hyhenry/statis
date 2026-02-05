@@ -48,6 +48,7 @@ function yamlToConfig(yaml) {
                 name: item.name || '',
                 url: item.url || '',
                 icon: item.icon || '',
+                icon_name: item.icon_name || '',
                 icon_text: item.icon_text || '',
                 description: item.description || '',
                 target: item.target || ''

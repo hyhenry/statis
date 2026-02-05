@@ -60,8 +60,9 @@ type Section struct {
 type Item struct {
 	Name        string `yaml:"name" json:"name"`
 	URL         string `yaml:"url" json:"url"`
-	Icon        string `yaml:"icon" json:"icon"`           // URL to icon image
-	IconText    string `yaml:"icon_text" json:"icon_text"` // Emoji or text fallback
+	Icon        string `yaml:"icon" json:"icon"`                 // URL to icon image
+	IconName    string `yaml:"icon_name" json:"icon_name"`       // Dashboard icon name (e.g., "opnsense", "portainer-dark") - auto-downloads on config load
+	IconText    string `yaml:"icon_text" json:"icon_text"`       // Emoji or text fallback
 	Description string `yaml:"description" json:"description"`
 	Target      string `yaml:"target" json:"target"` // _blank, _self, etc.
 }
@@ -177,6 +178,9 @@ func loadConfig() error {
 		config.Theme.SecondaryColor = config.Theme.PrimaryColor
 	}
 
+	// Process icon_name fields and download icons if needed
+	processIconNames(&config)
+
 	return nil
 }
 
@@ -196,6 +200,9 @@ func saveConfig() error {
 			log.Printf("Warning: Failed to download font '%s': %v", config.Theme.FontFamily, err)
 		}
 	}
+
+	// Process icon_name fields and download icons before saving
+	processIconNames(&config)
 
 	data, err := yaml.Marshal(&config)
 	if err != nil {
@@ -228,6 +235,9 @@ func reloadConfig() error {
 			log.Printf("Warning: Failed to download font '%s': %v", newConfig.Theme.FontFamily, err)
 		}
 	}
+
+	// Process icon_name fields and download icons if needed
+	processIconNames(&newConfig)
 
 	// Apply the new config
 	configMu.Lock()
@@ -884,6 +894,10 @@ func getUsedIcons() map[string]bool {
 			if item.Icon != "" && strings.HasPrefix(item.Icon, "/icons/") {
 				used[item.Icon] = true
 			}
+			// Also include icons that would be generated from icon_name
+			if item.IconName != "" {
+				used["/icons/"+item.IconName+".svg"] = true
+			}
 		}
 	}
 	return used
@@ -1142,6 +1156,55 @@ func handleIconUpload(w http.ResponseWriter, r *http.Request) {
 		"status": "ok",
 		"path":   "/icons/" + iconFileName,
 	})
+}
+
+// processIconNames downloads icons for any items that have icon_name set
+// This allows YAML editors to specify icons by name that will be auto-downloaded
+func processIconNames(cfg *Config) {
+	iconsDir := "./icons"
+	if err := os.MkdirAll(iconsDir, 0755); err != nil {
+		log.Printf("Warning: Failed to create icons directory: %v", err)
+		return
+	}
+
+	for i := range cfg.Services {
+		for j := range cfg.Services[i].Items {
+			item := &cfg.Services[i].Items[j]
+			if item.IconName == "" {
+				continue
+			}
+
+			// Default to svg format
+			format := "svg"
+			iconFileName := item.IconName + "." + format
+			iconPath := filepath.Join(iconsDir, iconFileName)
+			localURL := "/icons/" + iconFileName
+
+			// Skip if icon is already set to this path
+			if item.Icon == localURL {
+				continue
+			}
+
+			// Check if icon file already exists locally
+			if _, err := os.Stat(iconPath); err == nil {
+				// Icon exists, just update the Icon field
+				item.Icon = localURL
+				log.Printf("✓ Icon '%s' already exists, using local copy", item.IconName)
+				continue
+			}
+
+			// Download icon from CDN
+			iconURL := fmt.Sprintf("%s/%s/%s.%s", iconCDNBase, format, item.IconName, format)
+			if err := downloadFile(iconURL, iconPath); err != nil {
+				log.Printf("Warning: Failed to download icon '%s': %v", item.IconName, err)
+				continue
+			}
+
+			// Update the Icon field to point to the local file
+			item.Icon = localURL
+			log.Printf("✓ Downloaded icon for '%s': %s", item.Name, item.IconName)
+		}
+	}
 }
 
 // downloadGoogleFont downloads a Google Font and saves it locally with offline font files
