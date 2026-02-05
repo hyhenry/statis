@@ -1261,12 +1261,12 @@ h5 {
     }
 }
 
-@media (min-width: 1000px) {
+/* @media (min-width: 1000px) {
     .service-column {
         margin-left: 2%;
-        width: 67.3333333333% !important;
+        width: calc(100% + 2%) !important;
     }
-}
+} */
 
 /* Smooth transitions for theme changes */
 * {
