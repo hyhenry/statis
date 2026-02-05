@@ -87,7 +87,118 @@ var (
 	// Skip next fsnotify reload (to avoid infinite loop when we save after processing)
 	skipNextReload bool
 	skipReloadMu   sync.Mutex
+
+	// Predefined web-safe fonts (no download needed)
+	predefinedFonts = map[string]bool{
+		"system":          true,
+		"Arial":           true,
+		"Helvetica":       true,
+		"Georgia":         true,
+		"Times New Roman": true,
+		"Courier New":     true,
+		"Verdana":         true,
+		"Trebuchet MS":    true,
+		"Impact":          true,
+	}
 )
+
+// Constants
+const (
+	iconsDir        = "./icons"
+	fontsDir        = "./fonts"
+	iconManifestURL = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@main/tree.json"
+	iconCDNBase     = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons"
+	iconCacheTTL    = 24 * time.Hour
+	maxUploadSize   = 5 << 20 // 5MB
+)
+
+// HTTP response helpers
+
+func writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func writeJSONStatus(w http.ResponseWriter, status string) {
+	writeJSON(w, map[string]string{"status": status})
+}
+
+func writeJSONStatusPath(w http.ResponseWriter, status, path string) {
+	writeJSON(w, map[string]string{"status": status, "path": path})
+}
+
+func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
+	if r.Method != method {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return false
+	}
+	return true
+}
+
+// Directory helpers
+
+func ensureDir(path string) error {
+	return os.MkdirAll(path, 0755)
+}
+
+// Config parsing helpers
+
+func parseConfig(data []byte) (Config, error) {
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return cfg, err
+	}
+	// Apply defaults
+	if cfg.Theme.SecondaryColor == "" {
+		cfg.Theme.SecondaryColor = cfg.Theme.PrimaryColor
+	}
+	return cfg, nil
+}
+
+// Template rendering helper
+
+func renderTemplate(w http.ResponseWriter, name string) {
+	configMu.RLock()
+	defer configMu.RUnlock()
+
+	if err := templates.ExecuteTemplate(w, name, config); err != nil {
+		log.Printf("Template error: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+// File download helper
+
+func downloadFile(url, filepath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
+// Font helpers
+
+func isPredefinedFont(fontName string) bool {
+	return predefinedFonts[fontName]
+}
+
+func normalizeFont(fontName string) string {
+	return strings.ReplaceAll(fontName, " ", "-")
+}
 
 func main() {
 	// Determine config path
@@ -174,13 +285,11 @@ func loadConfig() error {
 		return err
 	}
 
-	if err := yaml.Unmarshal(data, &config); err != nil {
+	cfg, err := parseConfig(data)
+	if err != nil {
 		return err
 	}
-
-	if config.Theme.SecondaryColor == "" {
-		config.Theme.SecondaryColor = config.Theme.PrimaryColor
-	}
+	config = cfg
 
 	// Process icon_name fields and download icons if needed
 	if processIconNames(&config) {
@@ -200,8 +309,7 @@ func saveConfig() error {
 	defer configMu.Unlock()
 
 	// Ensure directory exists
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := ensureDir(filepath.Dir(configPath)); err != nil {
 		return err
 	}
 
@@ -248,20 +356,14 @@ func saveConfigQuiet() error {
 }
 
 func reloadConfig() error {
-	// Read the file
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
 
-	// Unmarshal into temporary config for validation
-	var newConfig Config
-	if err := yaml.Unmarshal(data, &newConfig); err != nil {
+	newConfig, err := parseConfig(data)
+	if err != nil {
 		return err
-	}
-
-	if newConfig.Theme.SecondaryColor == "" {
-		newConfig.Theme.SecondaryColor = newConfig.Theme.PrimaryColor
 	}
 
 	// Download Google Font if needed
@@ -410,34 +512,19 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-
-	configMu.RLock()
-	defer configMu.RUnlock()
-
-	if err := templates.ExecuteTemplate(w, "index.html", config); err != nil {
-		log.Printf("Template error: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
+	renderTemplate(w, "index.html")
 }
 
 func handleSettings(w http.ResponseWriter, r *http.Request) {
-	configMu.RLock()
-	defer configMu.RUnlock()
-
-	if err := templates.ExecuteTemplate(w, "settings.html", config); err != nil {
-		log.Printf("Template error: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
+	renderTemplate(w, "settings.html")
 }
 
 func handleAPIConfig(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	switch r.Method {
 	case http.MethodGet:
 		configMu.RLock()
 		defer configMu.RUnlock()
-		json.NewEncoder(w).Encode(config)
+		writeJSON(w, config)
 
 	case http.MethodPut:
 		var newConfig Config
@@ -458,7 +545,7 @@ func handleAPIConfig(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("✓ Config saved successfully")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		writeJSONStatus(w, "ok")
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -511,9 +598,7 @@ func handleUptimeKumaProxy(w http.ResponseWriter, r *http.Request) {
 	statusData["heartbeatList"] = heartbeatData["heartbeatList"]
 	statusData["uptimeList"] = heartbeatData["uptimeList"]
 
-	// Return merged data
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(statusData)
+	writeJSON(w, statusData)
 }
 
 type cpuTimes struct {
@@ -561,17 +646,9 @@ func handleSystemStats(w http.ResponseWriter, r *http.Request) {
 		usedPercent = (float64(used) / float64(memTotal)) * 100
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(systemStatsResponse{
-		CPU: cpuStats{
-			UsagePercent: cpuUsage,
-		},
-		Memory: memoryStats{
-			TotalBytes:     memTotal,
-			AvailableBytes: memAvailable,
-			UsedBytes:      used,
-			UsedPercent:    usedPercent,
-		},
+	writeJSON(w, systemStatsResponse{
+		CPU:    cpuStats{UsagePercent: cpuUsage},
+		Memory: memoryStats{TotalBytes: memTotal, AvailableBytes: memAvailable, UsedBytes: used, UsedPercent: usedPercent},
 	})
 }
 
@@ -756,75 +833,90 @@ func handleRSSWidget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var items []rssResponseItem
-
-	// Try parsing as RSS 2.0 first
-	var rss rssFeed
-	if err := xml.Unmarshal(body, &rss); err == nil && len(rss.Channel.Items) > 0 {
-		for _, item := range rss.Channel.Items {
-			imageURL := ""
-			if item.Enclosure.URL != "" && strings.HasPrefix(item.Enclosure.Type, "image/") {
-				imageURL = item.Enclosure.URL
-			}
-			if imageURL == "" {
-				for _, media := range item.MediaContent {
-					if media.URL != "" {
-						imageURL = media.URL
-						break
-					}
-				}
-			}
-			if imageURL == "" {
-				for _, media := range item.MediaThumbnail {
-					if media.URL != "" {
-						imageURL = media.URL
-						break
-					}
-				}
-			}
-			if imageURL == "" {
-				imageURL = extractFirstImageURL(item.Description)
-			}
-
-			items = append(items, rssResponseItem{
-				Title:       item.Title,
-				Link:        item.Link,
-				Description: stripHTMLTags(item.Description),
-				PubDate:     item.PubDate,
-				Image:       imageURL,
-			})
-		}
-	} else {
-		// Try parsing as Atom
-		var atom atomFeed
-		if err := xml.Unmarshal(body, &atom); err == nil && len(atom.Entries) > 0 {
-			for _, entry := range atom.Entries {
-				desc := entry.Summary
-				if desc == "" {
-					desc = entry.Content
-				}
-				linkURL := pickAtomLink(entry.Links)
-				imageURL := pickAtomImage(entry.Links)
-				if imageURL == "" {
-					imageURL = extractFirstImageURL(desc)
-				}
-
-				items = append(items, rssResponseItem{
-					Title:       entry.Title,
-					Link:        linkURL,
-					Description: stripHTMLTags(desc),
-					PubDate:     entry.Updated,
-					Image:       imageURL,
-				})
-			}
-		} else {
-			http.Error(w, "Failed to parse feed (not valid RSS or Atom)", http.StatusInternalServerError)
-			return
-		}
+	items, err := parseFeed(body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rssResponse{Items: items})
+	writeJSON(w, rssResponse{Items: items})
+}
+
+// parseFeed parses RSS 2.0 or Atom feed data
+func parseFeed(body []byte) ([]rssResponseItem, error) {
+	// Try RSS 2.0 first
+	var rss rssFeed
+	if err := xml.Unmarshal(body, &rss); err == nil && len(rss.Channel.Items) > 0 {
+		return parseRSSItems(rss.Channel.Items), nil
+	}
+
+	// Try Atom
+	var atom atomFeed
+	if err := xml.Unmarshal(body, &atom); err == nil && len(atom.Entries) > 0 {
+		return parseAtomEntries(atom.Entries), nil
+	}
+
+	return nil, fmt.Errorf("failed to parse feed (not valid RSS or Atom)")
+}
+
+func parseRSSItems(items []rssItem) []rssResponseItem {
+	result := make([]rssResponseItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, rssResponseItem{
+			Title:       item.Title,
+			Link:        item.Link,
+			Description: stripHTMLTags(item.Description),
+			PubDate:     item.PubDate,
+			Image:       extractRSSImage(item),
+		})
+	}
+	return result
+}
+
+func parseAtomEntries(entries []atomEntry) []rssResponseItem {
+	result := make([]rssResponseItem, 0, len(entries))
+	for _, entry := range entries {
+		desc := entry.Summary
+		if desc == "" {
+			desc = entry.Content
+		}
+		imageURL := pickAtomImage(entry.Links)
+		if imageURL == "" {
+			imageURL = extractFirstImageURL(desc)
+		}
+		result = append(result, rssResponseItem{
+			Title:       entry.Title,
+			Link:        pickAtomLink(entry.Links),
+			Description: stripHTMLTags(desc),
+			PubDate:     entry.Updated,
+			Image:       imageURL,
+		})
+	}
+	return result
+}
+
+// extractRSSImage extracts image URL from RSS item using multiple sources
+func extractRSSImage(item rssItem) string {
+	if item.Enclosure.URL != "" && strings.HasPrefix(item.Enclosure.Type, "image/") {
+		return item.Enclosure.URL
+	}
+	if url := findFirstMediaURL(item.MediaContent); url != "" {
+		return url
+	}
+	if url := findFirstMediaURL(item.MediaThumbnail); url != "" {
+		return url
+	}
+	return extractFirstImageURL(item.Description)
+}
+
+// findFirstMediaURL returns the first non-empty URL from media content slice
+func findFirstMediaURL(media []mediaContent) string {
+	for _, m := range media {
+		if m.URL != "" {
+			return m.URL
+		}
+	}
+	return ""
 }
 
 func pickAtomLink(links []atomLink) string {
@@ -876,8 +968,7 @@ type cleanupResult struct {
 }
 
 func handleCleanUnusedAssets(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !requireMethod(w, r, http.MethodDelete) {
 		return
 	}
 
@@ -891,9 +982,8 @@ func handleCleanUnusedAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clean unused fonts
-	fontsDir := "./fonts"
 	if entries, err := os.ReadDir(fontsDir); err == nil {
-		normalizedFont := strings.ReplaceAll(currentFont, " ", "-")
+		normalizedFont := normalizeFont(currentFont)
 		for _, entry := range entries {
 			if entry.IsDir() {
 				continue
@@ -914,7 +1004,6 @@ func handleCleanUnusedAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clean unused icons
-	iconsDir := "./icons"
 	if entries, err := os.ReadDir(iconsDir); err == nil {
 		for _, entry := range entries {
 			if entry.IsDir() {
@@ -935,9 +1024,7 @@ func handleCleanUnusedAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✓ Cleaned up %d fonts and %d icons", result.FontsRemoved, result.IconsRemoved)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	writeJSON(w, result)
 }
 
 // getUsedIcons returns a set of icon paths that are currently referenced in the config
@@ -957,12 +1044,7 @@ func getUsedIcons() map[string]bool {
 	return used
 }
 
-// Dashboard icons constants
-const (
-	iconManifestURL = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@main/tree.json"
-	iconCDNBase     = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons"
-	iconCacheTTL    = 24 * time.Hour
-)
+// Dashboard icons types
 
 type iconManifestResponse struct {
 	Icons []string `json:"icons"`
@@ -975,8 +1057,7 @@ type iconDownloadRequest struct {
 }
 
 func handleIconSearch(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -998,8 +1079,7 @@ func handleIconSearch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(iconManifestResponse{
+	writeJSON(w, iconManifestResponse{
 		Icons: filtered,
 		Total: len(filtered),
 	})
@@ -1057,8 +1137,7 @@ func getIconManifest() ([]string, error) {
 }
 
 func handleIconDownload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !requireMethod(w, r, http.MethodPost) {
 		return
 	}
 
@@ -1083,9 +1162,7 @@ func handleIconDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create icons directory if it doesn't exist
-	iconsDir := "./icons"
-	if err := os.MkdirAll(iconsDir, 0755); err != nil {
+	if err := ensureDir(iconsDir); err != nil {
 		http.Error(w, "Failed to create icons directory", http.StatusInternalServerError)
 		return
 	}
@@ -1095,11 +1172,7 @@ func handleIconDownload(w http.ResponseWriter, r *http.Request) {
 	iconPath := filepath.Join(iconsDir, iconFileName)
 	if _, err := os.Stat(iconPath); err == nil {
 		// Icon already exists
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"status": "ok",
-			"path":   "/icons/" + iconFileName,
-		})
+		writeJSONStatusPath(w, "ok", "/icons/"+iconFileName)
 		return
 	}
 
@@ -1112,30 +1185,32 @@ func handleIconDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✓ Downloaded icon: %s", iconFileName)
+	writeJSONStatusPath(w, "ok", "/icons/"+iconFileName)
+}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
-		"path":   "/icons/" + iconFileName,
-	})
+// Allowed icon upload extensions
+var allowedIconExts = map[string]bool{
+	".svg":  true,
+	".png":  true,
+	".jpg":  true,
+	".jpeg": true,
+	".gif":  true,
+	".webp": true,
 }
 
 func handleIconUpload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !requireMethod(w, r, http.MethodPost) {
 		return
 	}
 
-	// Limit upload size to 5MB
-	r.Body = http.MaxBytesReader(w, r.Body, 5<<20)
+	// Limit upload size
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 
-	// Parse multipart form
-	if err := r.ParseMultipartForm(5 << 20); err != nil {
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		http.Error(w, "File too large (max 5MB)", http.StatusBadRequest)
 		return
 	}
 
-	// Get uploaded file
 	file, header, err := r.FormFile("icon")
 	if err != nil {
 		http.Error(w, "Missing icon file", http.StatusBadRequest)
@@ -1145,51 +1220,26 @@ func handleIconUpload(w http.ResponseWriter, r *http.Request) {
 
 	// Validate file type by extension
 	ext := strings.ToLower(filepath.Ext(header.Filename))
-	allowedExts := map[string]bool{
-		".svg":  true,
-		".png":  true,
-		".jpg":  true,
-		".jpeg": true,
-		".gif":  true,
-		".webp": true,
-	}
-	if !allowedExts[ext] {
+	if !allowedIconExts[ext] {
 		http.Error(w, "Invalid file type (allowed: svg, png, jpg, jpeg, gif, webp)", http.StatusBadRequest)
 		return
 	}
 
-	// Create icons directory if it doesn't exist
-	iconsDir := "./icons"
-	if err := os.MkdirAll(iconsDir, 0755); err != nil {
+	if err := ensureDir(iconsDir); err != nil {
 		http.Error(w, "Failed to create icons directory", http.StatusInternalServerError)
 		return
 	}
 
-	// Sanitize filename - remove path components and keep only alphanumeric, dash, underscore
-	baseName := filepath.Base(header.Filename)
-	baseName = strings.TrimSuffix(baseName, ext)
-	// Replace spaces with dashes and remove unsafe characters
-	safeName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(baseName, "-")
-	safeName = regexp.MustCompile(`-+`).ReplaceAllString(safeName, "-")
-	safeName = strings.Trim(safeName, "-")
+	// Sanitize filename
+	safeName := sanitizeFilename(strings.TrimSuffix(filepath.Base(header.Filename), ext))
 	if safeName == "" {
 		safeName = "icon"
 	}
 
-	// Check for existing file and generate unique name if needed
-	iconFileName := safeName + ext
-	iconPath := filepath.Join(iconsDir, iconFileName)
-	counter := 1
-	for {
-		if _, err := os.Stat(iconPath); os.IsNotExist(err) {
-			break
-		}
-		iconFileName = fmt.Sprintf("%s-%d%s", safeName, counter, ext)
-		iconPath = filepath.Join(iconsDir, iconFileName)
-		counter++
-	}
+	// Generate unique filename
+	iconFileName, iconPath := uniqueFilename(iconsDir, safeName, ext)
 
-	// Create the destination file
+	// Create and save the file
 	dst, err := os.Create(iconPath)
 	if err != nil {
 		http.Error(w, "Failed to save icon", http.StatusInternalServerError)
@@ -1197,57 +1247,59 @@ func handleIconUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dst.Close()
 
-	// Copy uploaded file to destination
 	if _, err := io.Copy(dst, file); err != nil {
 		http.Error(w, "Failed to save icon", http.StatusInternalServerError)
 		return
 	}
 
 	log.Printf("✓ Uploaded icon: %s", iconFileName)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "ok",
-		"path":   "/icons/" + iconFileName,
-	})
+	writeJSONStatusPath(w, "ok", "/icons/"+iconFileName)
 }
 
-// processIconNames downloads icons for any items that have icon_name set
-// This allows YAML editors to specify icons by name that will be auto-downloaded
-// Returns true if any config changes were made (icon paths updated)
-//
-// Logic:
-// 1. If icon_name is empty, skip (use existing icon or icon_text)
-// 2. If icon_name is set, compute expected path from icon_name
-// 3. Check if icon file exists at expected path
-// 4. If file exists, ensure icon path matches (update if needed)
-// 5. If file doesn't exist, download and update icon path
+// sanitizeFilename removes unsafe characters from a filename
+func sanitizeFilename(name string) string {
+	safe := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(name, "-")
+	safe = regexp.MustCompile(`-+`).ReplaceAllString(safe, "-")
+	return strings.Trim(safe, "-")
+}
+
+// uniqueFilename generates a unique filename in the given directory
+func uniqueFilename(dir, baseName, ext string) (string, string) {
+	fileName := baseName + ext
+	filePath := filepath.Join(dir, fileName)
+	counter := 1
+	for {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return fileName, filePath
+		}
+		fileName = fmt.Sprintf("%s-%d%s", baseName, counter, ext)
+		filePath = filepath.Join(dir, fileName)
+		counter++
+	}
+}
+
+// processIconNames downloads icons for any items that have icon_name set.
+// Returns true if any config changes were made (icon paths updated).
 func processIconNames(cfg *Config) bool {
-	changed := false
-	iconsDir := "./icons"
-	if err := os.MkdirAll(iconsDir, 0755); err != nil {
+	if err := ensureDir(iconsDir); err != nil {
 		log.Printf("Warning: Failed to create icons directory: %v", err)
 		return false
 	}
 
+	changed := false
 	for i := range cfg.Services {
 		for j := range cfg.Services[i].Items {
 			item := &cfg.Services[i].Items[j]
-
-			// If icon_name is empty, skip - use existing icon or icon_text
 			if item.IconName == "" {
 				continue
 			}
 
-			// Compute expected path from icon_name
-			format := "svg"
-			iconFileName := item.IconName + "." + format
+			iconFileName := item.IconName + ".svg"
 			iconPath := filepath.Join(iconsDir, iconFileName)
 			localURL := "/icons/" + iconFileName
 
-			// Always verify file exists (even if path already matches)
+			// Check if file exists
 			if _, err := os.Stat(iconPath); err == nil {
-				// File exists - ensure icon path matches icon_name
 				if item.Icon != localURL {
 					item.Icon = localURL
 					changed = true
@@ -1256,14 +1308,13 @@ func processIconNames(cfg *Config) bool {
 				continue
 			}
 
-			// File doesn't exist - download from CDN
-			iconURL := fmt.Sprintf("%s/%s/%s.%s", iconCDNBase, format, item.IconName, format)
+			// Download from CDN
+			iconURL := fmt.Sprintf("%s/svg/%s.svg", iconCDNBase, item.IconName)
 			if err := downloadFile(iconURL, iconPath); err != nil {
 				log.Printf("Warning: Failed to download icon '%s': %v", item.IconName, err)
 				continue
 			}
 
-			// Update icon path to point to downloaded file
 			item.Icon = localURL
 			changed = true
 			log.Printf("✓ Downloaded icon for '%s': %s", item.Name, item.IconName)
@@ -1275,69 +1326,67 @@ func processIconNames(cfg *Config) bool {
 // downloadGoogleFont downloads a Google Font and saves it locally with offline font files
 func downloadGoogleFont(fontName string) error {
 	if fontName == "" || isPredefinedFont(fontName) {
-		return nil // No download needed for predefined fonts
+		return nil
 	}
 
-	// Create fonts directory if it doesn't exist
-	fontsDir := "./fonts"
-	if err := os.MkdirAll(fontsDir, 0755); err != nil {
+	if err := ensureDir(fontsDir); err != nil {
 		return err
 	}
 
-	// Normalize the filename (replace spaces with hyphens for valid URLs)
-	normalizedName := strings.ReplaceAll(fontName, " ", "-")
+	normalizedName := normalizeFont(fontName)
+	fontPath := filepath.Join(fontsDir, normalizedName+".css")
 
 	// Check if font already exists
-	fontPath := filepath.Join(fontsDir, normalizedName+".css")
 	if _, err := os.Stat(fontPath); err == nil {
 		log.Printf("Font '%s' already downloaded", fontName)
-		return nil // Font already exists
+		return nil
 	}
 
 	// Fetch font CSS from Google Fonts API
-	// Use multiple weights for better coverage
-	// Important: Use a User-Agent header to get woff2 format URLs
-	// URL-encode the font name to handle spaces and special characters
-	encodedFontName := url.QueryEscape(fontName)
-	fontURL := "https://fonts.googleapis.com/css2?family=" + encodedFontName + ":wght@300;400;500;600;700&display=swap"
-	req, err := http.NewRequest("GET", fontURL, nil)
+	cssContent, err := fetchGoogleFontCSS(fontName)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("font not found: HTTP %d (check font name spelling)", resp.StatusCode)
-	}
-
-	// Read CSS content
-	cssBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	cssContent := string(cssBytes)
-
-	// Download all font files referenced in the CSS and replace URLs
+	// Download font files and update CSS to reference local copies
 	modifiedCSS, err := downloadFontFilesAndUpdateCSS(cssContent, normalizedName, fontsDir)
 	if err != nil {
 		log.Printf("Warning: Failed to download font files for '%s': %v", fontName, err)
-		// Still save the original CSS as fallback
-		modifiedCSS = cssContent
+		modifiedCSS = cssContent // Use original CSS as fallback
 	}
 
-	// Save modified CSS file
 	if err := os.WriteFile(fontPath, []byte(modifiedCSS), 0644); err != nil {
 		return err
 	}
 
 	log.Printf("✓ Downloaded Google Font: %s", fontName)
 	return nil
+}
+
+// fetchGoogleFontCSS fetches CSS from Google Fonts API
+func fetchGoogleFontCSS(fontName string) (string, error) {
+	fontURL := "https://fonts.googleapis.com/css2?family=" + url.QueryEscape(fontName) + ":wght@300;400;500;600;700&display=swap"
+	req, err := http.NewRequest("GET", fontURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("font not found: HTTP %d (check font name spelling)", resp.StatusCode)
+	}
+
+	cssBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(cssBytes), nil
 }
 
 // downloadFontFilesAndUpdateCSS downloads font files and updates CSS to reference local copies
@@ -1380,42 +1429,4 @@ func downloadFontFilesAndUpdateCSS(cssContent, fontName, fontsDir string) (strin
 	}
 
 	return modifiedCSS, nil
-}
-
-// downloadFile downloads a file from a URL and saves it locally
-func downloadFile(url, filepath string) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, resp.Body)
-	return err
-}
-
-// isPredefinedFont checks if a font is one of the predefined web-safe fonts
-func isPredefinedFont(fontName string) bool {
-	predefinedFonts := map[string]bool{
-		"system":          true,
-		"Arial":           true,
-		"Helvetica":       true,
-		"Georgia":         true,
-		"Times New Roman": true,
-		"Courier New":     true,
-		"Verdana":         true,
-		"Trebuchet MS":    true,
-		"Impact":          true,
-	}
-	return predefinedFonts[fontName]
 }
