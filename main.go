@@ -83,6 +83,10 @@ var (
 	iconManifest    []string
 	iconManifestMu  sync.RWMutex
 	iconManifestAge time.Time
+
+	// Skip next fsnotify reload (to avoid infinite loop when we save after processing)
+	skipNextReload bool
+	skipReloadMu   sync.Mutex
 )
 
 func main() {
@@ -179,7 +183,14 @@ func loadConfig() error {
 	}
 
 	// Process icon_name fields and download icons if needed
-	processIconNames(&config)
+	if processIconNames(&config) {
+		// Save updated config (with populated icon paths) - must release lock first
+		configMu.Unlock()
+		if err := saveConfigQuiet(); err != nil {
+			log.Printf("Warning: Failed to save config after processing icons: %v", err)
+		}
+		configMu.Lock()
+	}
 
 	return nil
 }
@@ -212,6 +223,30 @@ func saveConfig() error {
 	return os.WriteFile(configPath, data, 0644)
 }
 
+// saveConfigQuiet saves the config without re-processing icons (used after processIconNames already ran)
+// Sets skip flag to prevent fsnotify from triggering another reload
+func saveConfigQuiet() error {
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	// Set skip flag before writing
+	skipReloadMu.Lock()
+	skipNextReload = true
+	skipReloadMu.Unlock()
+
+	data, err := yaml.Marshal(&config)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return err
+	}
+
+	log.Printf("✓ Config saved with updated icon paths")
+	return nil
+}
+
 func reloadConfig() error {
 	// Read the file
 	data, err := os.ReadFile(configPath)
@@ -237,7 +272,7 @@ func reloadConfig() error {
 	}
 
 	// Process icon_name fields and download icons if needed
-	processIconNames(&newConfig)
+	iconsChanged := processIconNames(&newConfig)
 
 	// Apply the new config
 	configMu.Lock()
@@ -245,6 +280,14 @@ func reloadConfig() error {
 	configMu.Unlock()
 
 	log.Printf("✓ Config reloaded from %s", configPath)
+
+	// If icons were processed, save the updated config (with populated icon paths)
+	if iconsChanged {
+		if err := saveConfigQuiet(); err != nil {
+			log.Printf("Warning: Failed to save config after processing icons: %v", err)
+		}
+	}
+
 	return nil
 }
 
@@ -273,6 +316,17 @@ func watchConfigFile() {
 			}
 			// Handle write and create events (some editors use rename/create on save)
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+				// Check if we should skip this reload (triggered by our own save)
+				skipReloadMu.Lock()
+				shouldSkip := skipNextReload
+				skipNextReload = false
+				skipReloadMu.Unlock()
+
+				if shouldSkip {
+					log.Printf("📝 Config file changed (by us), skipping reload")
+					continue
+				}
+
 				log.Printf("📝 Config file changed, reloading...")
 				if err := reloadConfig(); err != nil {
 					log.Printf("❌ Failed to reload config: %v", err)
@@ -1160,51 +1214,62 @@ func handleIconUpload(w http.ResponseWriter, r *http.Request) {
 
 // processIconNames downloads icons for any items that have icon_name set
 // This allows YAML editors to specify icons by name that will be auto-downloaded
-func processIconNames(cfg *Config) {
+// Returns true if any config changes were made (icon paths updated)
+//
+// Logic:
+// 1. If icon_name is empty, skip (use existing icon or icon_text)
+// 2. If icon_name is set, compute expected path from icon_name
+// 3. Check if icon file exists at expected path
+// 4. If file exists, ensure icon path matches (update if needed)
+// 5. If file doesn't exist, download and update icon path
+func processIconNames(cfg *Config) bool {
+	changed := false
 	iconsDir := "./icons"
 	if err := os.MkdirAll(iconsDir, 0755); err != nil {
 		log.Printf("Warning: Failed to create icons directory: %v", err)
-		return
+		return false
 	}
 
 	for i := range cfg.Services {
 		for j := range cfg.Services[i].Items {
 			item := &cfg.Services[i].Items[j]
+
+			// If icon_name is empty, skip - use existing icon or icon_text
 			if item.IconName == "" {
 				continue
 			}
 
-			// Default to svg format
+			// Compute expected path from icon_name
 			format := "svg"
 			iconFileName := item.IconName + "." + format
 			iconPath := filepath.Join(iconsDir, iconFileName)
 			localURL := "/icons/" + iconFileName
 
-			// Skip if icon is already set to this path
-			if item.Icon == localURL {
-				continue
-			}
-
-			// Check if icon file already exists locally
+			// Always verify file exists (even if path already matches)
 			if _, err := os.Stat(iconPath); err == nil {
-				// Icon exists, just update the Icon field
-				item.Icon = localURL
-				log.Printf("✓ Icon '%s' already exists, using local copy", item.IconName)
+				// File exists - ensure icon path matches icon_name
+				if item.Icon != localURL {
+					item.Icon = localURL
+					changed = true
+					log.Printf("✓ Updated icon path for '%s' to match icon_name: %s", item.Name, item.IconName)
+				}
 				continue
 			}
 
-			// Download icon from CDN
+			// File doesn't exist - download from CDN
 			iconURL := fmt.Sprintf("%s/%s/%s.%s", iconCDNBase, format, item.IconName, format)
 			if err := downloadFile(iconURL, iconPath); err != nil {
 				log.Printf("Warning: Failed to download icon '%s': %v", item.IconName, err)
 				continue
 			}
 
-			// Update the Icon field to point to the local file
+			// Update icon path to point to downloaded file
 			item.Icon = localURL
+			changed = true
 			log.Printf("✓ Downloaded icon for '%s': %s", item.Name, item.IconName)
 		}
 	}
+	return changed
 }
 
 // downloadGoogleFont downloads a Google Font and saves it locally with offline font files

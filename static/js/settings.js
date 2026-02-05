@@ -241,8 +241,11 @@ function addItem(sectionIndex) {
     currentConfig.services[sectionIndex].items.push({
         name: 'New Service',
         url: 'https://',
+        icon: '',
+        icon_name: '',
         icon_text: '🔗',
-        description: ''
+        description: '',
+        target: ''
     });
     renderServicesEditor();
 }
@@ -254,6 +257,10 @@ function removeItem(sectionIndex, itemIndex) {
 
 function updateItem(sectionIndex, itemIndex, field, value) {
     currentConfig.services[sectionIndex].items[itemIndex][field] = value;
+    // Clear icon_name when icon is set directly via UI to prevent backend from overriding
+    if (field === 'icon') {
+        currentConfig.services[sectionIndex].items[itemIndex].icon_name = '';
+    }
 }
 
 // Widget operations
@@ -572,8 +579,9 @@ async function selectIcon(iconName) {
         const result = await response.json();
         const iconPath = result.path;
 
-        // Update the config
+        // Update the config - set icon_name to the selected icon for migration support
         currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
+        currentConfig.services[sectionIndex].items[itemIndex].icon_name = iconName;
 
         // Update the input field
         const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
@@ -695,8 +703,9 @@ async function handleIconUpload(file) {
         const result = await response.json();
         const iconPath = result.path;
 
-        // Update the config
+        // Update the config - clear icon_name since we're setting icon directly via upload
         currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
+        currentConfig.services[sectionIndex].items[itemIndex].icon_name = '';
 
         // Update the input field
         const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
