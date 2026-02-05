@@ -360,7 +360,9 @@ async function saveConfig() {
         background_color: document.getElementById('bgColor').value,
         card_color: document.getElementById('cardColor').value,
         text_color: document.getElementById('textColor').value,
-        font_family: fontFamily
+        font_family: fontFamily,
+        favicon: currentConfig.theme.favicon || '',
+        favicon_name: currentConfig.theme.favicon_name || ''
     };
 
     // Update layout from sliders
@@ -449,13 +451,22 @@ async function saveConfigSilently() {
 let iconPickerState = {
     sectionIndex: null,
     itemIndex: null,
+    mode: null, // 'service' or 'favicon'
     icons: [],
     searchTimeout: null
 };
 
-function openIconPicker(sectionIndex, itemIndex) {
-    iconPickerState.sectionIndex = sectionIndex;
-    iconPickerState.itemIndex = itemIndex;
+function openIconPicker(sectionIndexOrMode, itemIndex) {
+    // Check if opening for favicon (first arg is 'favicon' string)
+    if (sectionIndexOrMode === 'favicon') {
+        iconPickerState.mode = 'favicon';
+        iconPickerState.sectionIndex = null;
+        iconPickerState.itemIndex = null;
+    } else {
+        iconPickerState.mode = 'service';
+        iconPickerState.sectionIndex = sectionIndexOrMode;
+        iconPickerState.itemIndex = itemIndex;
+    }
 
     const modal = document.getElementById('icon-picker-modal');
     modal.style.display = 'block';
@@ -485,6 +496,7 @@ function closeIconPicker() {
     modal.style.display = 'none';
     iconPickerState.sectionIndex = null;
     iconPickerState.itemIndex = null;
+    iconPickerState.mode = null;
 }
 
 async function loadIcons() {
@@ -550,9 +562,14 @@ function renderIconGrid(icons) {
 }
 
 async function selectIcon(iconName) {
-    const { sectionIndex, itemIndex } = iconPickerState;
+    const { sectionIndex, itemIndex, mode } = iconPickerState;
 
-    if (sectionIndex === null || itemIndex === null) {
+    // Validate we have proper state
+    if (mode === 'service' && (sectionIndex === null || itemIndex === null)) {
+        closeIconPicker();
+        return;
+    }
+    if (mode !== 'service' && mode !== 'favicon') {
         closeIconPicker();
         return;
     }
@@ -579,18 +596,27 @@ async function selectIcon(iconName) {
         const result = await response.json();
         const iconPath = result.path;
 
-        // Update the config - set icon_name to the selected icon for migration support
-        currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
-        currentConfig.services[sectionIndex].items[itemIndex].icon_name = iconName;
+        if (mode === 'favicon') {
+            // Update favicon in config
+            currentConfig.theme.favicon = iconPath;
+            currentConfig.theme.favicon_name = iconName;
 
-        // Update the input field
-        const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
-        if (input) {
-            input.value = iconPath;
+            // Update favicon preview
+            updateFaviconPreview(iconPath);
+        } else {
+            // Update service icon
+            currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
+            currentConfig.services[sectionIndex].items[itemIndex].icon_name = iconName;
+
+            // Update the input field
+            const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
+            if (input) {
+                input.value = iconPath;
+            }
+
+            // Re-render to show preview
+            renderServicesEditor();
         }
-
-        // Re-render to show preview
-        renderServicesEditor();
 
         closeIconPicker();
     } catch (error) {
@@ -658,10 +684,15 @@ function initializeIconUpload() {
 }
 
 async function handleIconUpload(file) {
-    const { sectionIndex, itemIndex } = iconPickerState;
+    const { sectionIndex, itemIndex, mode } = iconPickerState;
 
-    if (sectionIndex === null || itemIndex === null) {
+    // Validate we have proper state
+    if (mode === 'service' && (sectionIndex === null || itemIndex === null)) {
         alert('Please select a service first');
+        return;
+    }
+    if (mode !== 'service' && mode !== 'favicon') {
+        alert('Invalid icon picker state');
         return;
     }
 
@@ -703,18 +734,27 @@ async function handleIconUpload(file) {
         const result = await response.json();
         const iconPath = result.path;
 
-        // Update the config - clear icon_name since we're setting icon directly via upload
-        currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
-        currentConfig.services[sectionIndex].items[itemIndex].icon_name = '';
+        if (mode === 'favicon') {
+            // Update favicon in config - clear favicon_name since we're uploading directly
+            currentConfig.theme.favicon = iconPath;
+            currentConfig.theme.favicon_name = '';
 
-        // Update the input field
-        const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
-        if (input) {
-            input.value = iconPath;
+            // Update favicon preview
+            updateFaviconPreview(iconPath);
+        } else {
+            // Update the config - clear icon_name since we're setting icon directly via upload
+            currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
+            currentConfig.services[sectionIndex].items[itemIndex].icon_name = '';
+
+            // Update the input field
+            const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
+            if (input) {
+                input.value = iconPath;
+            }
+
+            // Re-render to show preview
+            renderServicesEditor();
         }
-
-        // Re-render to show preview
-        renderServicesEditor();
 
         closeIconPicker();
     } catch (error) {
@@ -726,8 +766,49 @@ async function handleIconUpload(file) {
 
 // Initialize upload when modal opens
 const originalOpenIconPicker = openIconPicker;
-openIconPicker = function(sectionIndex, itemIndex) {
-    originalOpenIconPicker(sectionIndex, itemIndex);
+openIconPicker = function(sectionIndexOrMode, itemIndex) {
+    originalOpenIconPicker(sectionIndexOrMode, itemIndex);
     // Re-initialize upload handlers each time modal opens
     setTimeout(initializeIconUpload, 0);
 };
+
+// Favicon helper functions
+function updateFaviconPreview(iconPath) {
+    const preview = document.getElementById('favicon-preview');
+    if (preview) {
+        if (iconPath) {
+            preview.innerHTML = `<img src="${escapeHtml(iconPath)}" alt="Favicon" class="favicon-img">`;
+        } else {
+            preview.innerHTML = '<span class="favicon-placeholder">🌐</span>';
+        }
+    }
+    // Re-render the General section to show/hide clear button
+    updateFaviconClearButton(!!iconPath);
+}
+
+function updateFaviconClearButton(hasFavicon) {
+    const picker = document.querySelector('.favicon-picker');
+    if (!picker) return;
+
+    // Remove existing clear button if any
+    const existingClearBtn = picker.querySelector('.favicon-clear-btn');
+    if (existingClearBtn) {
+        existingClearBtn.remove();
+    }
+
+    // Add clear button if there's a favicon
+    if (hasFavicon) {
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'button favicon-clear-btn';
+        clearBtn.textContent = 'Clear';
+        clearBtn.onclick = clearFavicon;
+        picker.appendChild(clearBtn);
+    }
+}
+
+function clearFavicon() {
+    currentConfig.theme.favicon = '';
+    currentConfig.theme.favicon_name = '';
+    updateFaviconPreview('');
+}

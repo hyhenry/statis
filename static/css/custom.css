@@ -1214,6 +1214,35 @@ h5 {
     background: rgba(255, 255, 255, 0.05);
 }
 
+/* Favicon Picker */
+.favicon-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.favicon-preview {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.favicon-preview .favicon-img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.favicon-preview .favicon-placeholder {
+    font-size: 24px;
+    opacity: 0.5;
+}
+
 /* Responsive adjustments */
 
 

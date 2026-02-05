@@ -50,6 +50,8 @@ type Theme struct {
 	CardColor       string `yaml:"card_color" json:"card_color"`
 	TextColor       string `yaml:"text_color" json:"text_color"`
 	FontFamily      string `yaml:"font_family" json:"font_family"`
+	Favicon         string `yaml:"favicon" json:"favicon"`               // Path to favicon image (auto-populated if favicon_name is set)
+	FaviconName     string `yaml:"favicon_name" json:"favicon_name"`     // Dashboard icon name for favicon - auto-downloads on config load
 }
 
 type Section struct {
@@ -1041,6 +1043,13 @@ func getUsedIcons() map[string]bool {
 			}
 		}
 	}
+	// Include favicon if it's from the icons directory
+	if config.Theme.Favicon != "" && strings.HasPrefix(config.Theme.Favicon, "/icons/") {
+		used[config.Theme.Favicon] = true
+	}
+	if config.Theme.FaviconName != "" {
+		used["/icons/"+config.Theme.FaviconName+".svg"] = true
+	}
 	return used
 }
 
@@ -1279,6 +1288,7 @@ func uniqueFilename(dir, baseName, ext string) (string, string) {
 }
 
 // processIconNames downloads icons for any items that have icon_name set.
+// Also processes favicon_name in the theme.
 // Returns true if any config changes were made (icon paths updated).
 func processIconNames(cfg *Config) bool {
 	if err := ensureDir(iconsDir); err != nil {
@@ -1287,6 +1297,8 @@ func processIconNames(cfg *Config) bool {
 	}
 
 	changed := false
+
+	// Process service item icons
 	for i := range cfg.Services {
 		for j := range cfg.Services[i].Items {
 			item := &cfg.Services[i].Items[j]
@@ -1320,6 +1332,33 @@ func processIconNames(cfg *Config) bool {
 			log.Printf("✓ Downloaded icon for '%s': %s", item.Name, item.IconName)
 		}
 	}
+
+	// Process favicon_name
+	if cfg.Theme.FaviconName != "" {
+		iconFileName := cfg.Theme.FaviconName + ".svg"
+		iconPath := filepath.Join(iconsDir, iconFileName)
+		localURL := "/icons/" + iconFileName
+
+		// Check if file exists
+		if _, err := os.Stat(iconPath); err == nil {
+			if cfg.Theme.Favicon != localURL {
+				cfg.Theme.Favicon = localURL
+				changed = true
+				log.Printf("✓ Updated favicon path to match favicon_name: %s", cfg.Theme.FaviconName)
+			}
+		} else {
+			// Download from CDN
+			iconURL := fmt.Sprintf("%s/svg/%s.svg", iconCDNBase, cfg.Theme.FaviconName)
+			if err := downloadFile(iconURL, iconPath); err != nil {
+				log.Printf("Warning: Failed to download favicon icon '%s': %v", cfg.Theme.FaviconName, err)
+			} else {
+				cfg.Theme.Favicon = localURL
+				changed = true
+				log.Printf("✓ Downloaded favicon icon: %s", cfg.Theme.FaviconName)
+			}
+		}
+	}
+
 	return changed
 }
 

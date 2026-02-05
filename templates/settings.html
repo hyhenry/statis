@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - {{.Title}}</title>
-    
+    {{if .Theme.Favicon}}
+    <link rel="icon" href="{{.Theme.Favicon}}">
+    {{end}}
+
     <!-- Skeleton CSS -->
     <link rel="stylesheet" href="/static/css/normalize.css">
     <link rel="stylesheet" href="/static/css/skeleton.css">
@@ -47,6 +50,25 @@
                             <div class="six columns">
                                 <label for="subtitle">Subtitle</label>
                                 <input class="u-full-width" type="text" id="subtitle" value="{{.Subtitle}}">
+                            </div>
+                        </div>
+                        <div class="row" style="margin-top: 1rem;">
+                            <div class="six columns">
+                                <label>Favicon</label>
+                                <div class="favicon-picker">
+                                    <div class="favicon-preview" id="favicon-preview">
+                                        {{if .Theme.Favicon}}
+                                        <img src="{{.Theme.Favicon}}" alt="Favicon" class="favicon-img">
+                                        {{else}}
+                                        <span class="favicon-placeholder">🌐</span>
+                                        {{end}}
+                                    </div>
+                                    <button type="button" class="button" onclick="openIconPicker('favicon')">Browse Icons</button>
+                                    {{if .Theme.Favicon}}
+                                    <button type="button" class="button favicon-clear-btn" onclick="clearFavicon()">Clear</button>
+                                    {{end}}
+                                </div>
+                                <p class="help-text">Icon displayed in the browser tab</p>
                             </div>
                         </div>
                     </div>
