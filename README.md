@@ -8,9 +8,10 @@ A lightweight, self-hosted dashboard for your homelab services. Built with Go an
 
 - 🪶 **Lightweight** - Single binary, ~10MB memory usage
 - ⚙️ **Configurable** - YAML config file or web UI
-- 🎨 **Themeable** - Customize colors via config
+- 🎨 **Themeable** - Customize colors, fonts, and favicon via config
 - 📱 **Responsive** - Works on mobile and desktop
-- 🔌 **Widgets** - Uptime Kuma, iFrame, Clock (extensible)
+- 🔌 **Widgets** - Uptime Kuma, RSS, System Stats, Clock, iFrame, Header
+- 🖼️ **Dashboard Icons** - Browse and search 2800+ icons from homarr-labs/dashboard-icons
 - 🐳 **Docker Ready** - Easy deployment
 
 ## Quick Start
@@ -23,7 +24,7 @@ git clone https://github.com/hyhenry/statis.git
 cd statis
 
 # Edit config
-cp config.yaml.example config.yaml
+cp config.yaml.template config.yaml
 nano config.yaml
 
 # Run
@@ -64,19 +65,29 @@ subtitle: "Welcome home"
 
 theme:
   primary_color: "#33C3F0"
+  secondary_color: "#33C3F0"
   background_color: "#1a1a2e"
   card_color: "#16213e"
   text_color: "#eaeaea"
+  font_family: "system"              # Or any Google Font name
+  favicon: ""                        # Auto-populated if favicon_name is set
+  favicon_name: "home-assistant"     # Dashboard icon name - auto-downloads
+
+layout:
+  widget_columns: 4                  # Width of widget column (2-6)
+  service_columns: 8                 # Width of service column (12 - widget_columns)
+  cards_per_row: 3                   # Service cards per row (1-5)
 
 services:
-  - name: "Section Name"
+  - name: "Infrastructure"
     items:
-      - name: "Service Name"
-        url: "https://service.local"
-        icon_text: "🖥️"           # Emoji icon
-        # icon: "https://..."     # Or URL to image
-        description: "Description"
-        target: "_blank"          # Optional: _blank, _self
+      - name: "Proxmox"
+        url: "https://proxmox.local:8006"
+        icon: ""                     # Auto-populated if icon_name is set
+        icon_name: "proxmox"         # Dashboard icon name - auto-downloads
+        icon_text: "🖥️"             # Emoji fallback
+        description: "Hypervisor"
+        target: "_blank"             # Optional: _blank, _self
 
 widgets:
   - type: "uptime-kuma"
@@ -84,17 +95,54 @@ widgets:
     config:
       url: "https://uptime.local:3001"
       slug: "status"
+      collapsed: "true"
 ```
 
 ### Icons
 
-You can use either:
-- **Emoji**: `icon_text: "🖥️"`
-- **Image URL**: `icon: "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/proxmox.png"`
+Statis integrates with [homarr-labs/dashboard-icons](https://github.com/homarr-labs/dashboard-icons), providing access to 2800+ service icons.
 
-Dashboard Icons collection: https://github.com/walkxcode/dashboard-icons
+**Option 1: Icon Name (Recommended)**
+Use `icon_name` to reference icons by name. They are automatically downloaded and cached locally:
+```yaml
+- name: "Proxmox"
+  icon_name: "proxmox"       # Downloads /icons/proxmox.svg automatically
+```
+
+**Option 2: Browse Icons**
+Use the icon picker in the settings UI to search and select icons visually.
+
+**Option 3: Upload Custom Icons**
+Drag and drop your own icons (SVG, PNG, JPG, GIF, WebP) via the settings UI.
+
+**Option 4: Emoji Fallback**
+```yaml
+- name: "Custom Service"
+  icon_text: "🖥️"           # Emoji shown if no icon is set
+```
+
+### Favicon
+
+Set a custom favicon for the browser tab:
+
+```yaml
+theme:
+  favicon_name: "home-assistant"   # Uses dashboard icon - auto-downloads
+  # OR
+  favicon: "/icons/custom.svg"     # Use a custom uploaded icon
+```
+
+You can also set the favicon via the Settings UI in the General section.
 
 ### Available Widgets
+
+#### Header
+Visual separator between widget groups:
+```yaml
+- type: "header"
+  title: "Status"
+  config: {}
+```
 
 #### Uptime Kuma
 ```yaml
@@ -103,6 +151,24 @@ Dashboard Icons collection: https://github.com/walkxcode/dashboard-icons
   config:
     url: "https://your-uptime-kuma-instance"
     slug: "your-status-page-slug"
+    collapsed: "true"              # Optional: start collapsed
+```
+
+#### RSS Feed
+```yaml
+- type: "rss"
+  title: "Tech News"
+  config:
+    url: "https://feeds.example.com/rss"
+    items_per_page: "3"            # Items shown per page
+    refresh: "300"                 # Refresh interval in seconds
+```
+
+#### System Stats (Linux only)
+```yaml
+- type: "system-stats"
+  title: "System Usage"
+  config: {}
 ```
 
 #### Clock
@@ -110,8 +176,8 @@ Dashboard Icons collection: https://github.com/walkxcode/dashboard-icons
 - type: "clock"
   title: "Local Time"
   config:
-    timezone: "local"  # Or "America/New_York", "Europe/London", etc.
-    format: "24h"      # Or "12h"
+    timezone: "local"              # Or "America/New_York", "Europe/London", etc.
+    format: "24h"                  # Or "12h"
 ```
 
 #### iFrame
@@ -155,6 +221,8 @@ labels:
 statis/
 ├── main.go              # Main application
 ├── config.yaml          # Configuration
+├── icons/               # Downloaded/uploaded icons
+├── fonts/               # Downloaded Google Fonts
 ├── templates/
 │   ├── index.html       # Dashboard page
 │   └── settings.html    # Settings page
@@ -165,7 +233,8 @@ statis/
 │   │   └── custom.css
 │   └── js/
 │       ├── widgets.js
-│       └── settings.js
+│       ├── settings.js
+│       └── utils.js
 ├── Dockerfile
 └── docker-compose.yaml
 ```
@@ -186,11 +255,16 @@ statis/
 | `/api/config` | PUT | Update config |
 | `/api/widget/uptime-kuma` | GET | Proxy to Uptime Kuma |
 | `/api/widget/system-stats` | GET | Local CPU/RAM usage (Linux only) |
+| `/api/widget/rss` | GET | Fetch and parse RSS/Atom feeds |
+| `/api/icons/search` | GET | Search dashboard icons |
+| `/api/icons/download` | POST | Download icon from CDN |
+| `/api/icons/upload` | POST | Upload custom icon |
+| `/api/assets/clean-unused` | DELETE | Remove unused fonts and icons |
 
 ## Comparison
 
 | Feature | Statis | Dashy | Homer |
-|---------|--------------|-------|-------|
+|---------|--------|-------|-------|
 | Binary Size | ~8MB | N/A | N/A |
 | Memory Usage | ~10MB | ~100MB+ | ~50MB+ |
 | Config | YAML + UI | YAML + UI | YAML |
