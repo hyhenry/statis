@@ -1,6 +1,63 @@
 // YAML Editor functionality for main page
 let currentConfig = null;
 
+// Initialize editor enhancements when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    const editor = document.getElementById('yamlEditor');
+    const lineNumbers = document.getElementById('yamlLineNumbers');
+
+    if (editor && lineNumbers) {
+        // Handle tab key to insert spaces
+        editor.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                const spaces = '    '; // 4 spaces
+
+                if (e.shiftKey) {
+                    // Shift+Tab: remove indent from current line
+                    const lineStart = this.value.lastIndexOf('\n', start - 1) + 1;
+                    const lineContent = this.value.substring(lineStart, start);
+                    const spacesToRemove = Math.min(4, lineContent.match(/^ */)[0].length);
+                    if (spacesToRemove > 0) {
+                        this.value = this.value.substring(0, lineStart) +
+                            this.value.substring(lineStart + spacesToRemove);
+                        this.selectionStart = this.selectionEnd = start - spacesToRemove;
+                    }
+                } else {
+                    // Tab: insert 4 spaces
+                    this.value = this.value.substring(0, start) + spaces + this.value.substring(end);
+                    this.selectionStart = this.selectionEnd = start + spaces.length;
+                }
+                updateLineNumbers();
+            }
+        });
+
+        // Update line numbers on input
+        editor.addEventListener('input', updateLineNumbers);
+
+        // Sync scroll between editor and line numbers
+        editor.addEventListener('scroll', function() {
+            lineNumbers.scrollTop = this.scrollTop;
+        });
+    }
+});
+
+function updateLineNumbers() {
+    const editor = document.getElementById('yamlEditor');
+    const lineNumbers = document.getElementById('yamlLineNumbers');
+    if (!editor || !lineNumbers) return;
+
+    const lines = editor.value.split('\n').length;
+    let html = '';
+    for (let i = 1; i <= lines; i++) {
+        html += i + '\n';
+    }
+    lineNumbers.textContent = html;
+    lineNumbers.scrollTop = editor.scrollTop;
+}
+
 async function loadConfig() {
     try {
         const response = await fetch('/api/config');
@@ -11,16 +68,55 @@ async function loadConfig() {
 }
 
 function configToYaml(config) {
-    return jsyaml.dump(config, {
+    let yaml = jsyaml.dump(config, {
         indent: 4,
         lineWidth: -1,
         quotingType: "'",
         forceQuotes: false
     });
+
+    // Fix array formatting: put first key on same line as dash,
+    // and reduce indent of subsequent properties to align
+    const lines = yaml.split('\n');
+    const result = [];
+    const adjustStack = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) {
+            result.push(line);
+            continue;
+        }
+
+        const spaces = (line.match(/^(\s*)/) || ['', ''])[1].length;
+
+        // Pop adjustments that no longer apply
+        while (adjustStack.length > 0 && spaces < adjustStack[adjustStack.length - 1]) {
+            adjustStack.pop();
+        }
+
+        const totalAdjust = adjustStack.length * 2;
+
+        // Check for standalone dash line
+        const dashMatch = line.match(/^(\s*)-\s*$/);
+        if (dashMatch && i + 1 < lines.length && lines[i + 1].trim()) {
+            const nextLine = lines[i + 1];
+            const nextSpaces = (nextLine.match(/^(\s*)/) || ['', ''])[1].length;
+            const newIndent = spaces - totalAdjust;
+            result.push(' '.repeat(newIndent) + '- ' + nextLine.trim());
+            adjustStack.push(nextSpaces);
+            i++;
+        } else {
+            const newIndent = Math.max(0, spaces - totalAdjust);
+            result.push(' '.repeat(newIndent) + line.trim());
+        }
+    }
+
+    return result.join('\n');
 }
 
-function yamlToConfig(yaml) {
-    const parsed = jsyaml.load(yaml);
+function yamlToConfig(yamlStr) {
+    const parsed = jsyaml.load(yamlStr);
     const config = {
         title: parsed.title || '',
         subtitle: parsed.subtitle || '',
@@ -73,6 +169,7 @@ async function openYamlModal() {
     }
     document.getElementById('yamlEditor').value = configToYaml(currentConfig);
     document.getElementById('yamlModal').classList.add('active');
+    updateLineNumbers();
 }
 
 function closeYamlModal() {

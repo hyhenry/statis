@@ -131,12 +131,12 @@ function renderItemEditor(sectionIndex, itemIndex, item) {
                     <input type="text" class="u-full-width" value="${escapeHtml(item.name)}"
                         onchange="updateItem(${sectionIndex}, ${itemIndex}, 'name', this.value)">
                 </div>
-                <div class="three columns">
+                <div class="four columns">
                     <label>URL</label>
                     <input type="url" class="u-full-width" value="${escapeHtml(item.url)}"
                         onchange="updateItem(${sectionIndex}, ${itemIndex}, 'url', this.value)">
                 </div>
-                <div class="five columns">
+                <div class="four columns">
                     <label>Description</label>
                     <input type="text" class="u-full-width" value="${escapeHtml(item.description || '')}"
                         onchange="updateItem(${sectionIndex}, ${itemIndex}, 'description', this.value)">
@@ -147,12 +147,12 @@ function renderItemEditor(sectionIndex, itemIndex, item) {
                 </div>
             </div>
             <div class="row">
-                <div class="two columns">
+                <div class="three columns">
                     <label>Icon (emoji)</label>
                     <input type="text" class="u-full-width" value="${escapeHtml(item.icon_text || '')}"
                         onchange="updateItem(${sectionIndex}, ${itemIndex}, 'icon_text', this.value)">
                 </div>
-                <div class="ten columns">
+                <div class="nine columns">
                     <label>Icon Image</label>
                     <div class="icon-input-group">
                         ${iconPreview}
@@ -178,7 +178,10 @@ function renderWidgetsEditor() {
             .map(([k, v]) => `${k}: ${v}`)
             .join('\n');
 
-        const isHeader = widget.type === 'header';
+        const template = widgetConfigTemplates[widget.type] || { hasConfig: true, placeholder: '' };
+        const hasConfig = template.hasConfig;
+        const placeholder = template.placeholder || '';
+
         widgetEl.innerHTML = `
             <div class="widget-editor-header">
                 <h5>${escapeHtml(widget.title || 'Widget')}</h5>
@@ -188,12 +191,12 @@ function renderWidgetsEditor() {
                 <div class="four columns">
                     <label>Type</label>
                     <select class="u-full-width" onchange="updateWidget(${index}, 'type', this.value)">
-                        <option value="uptime-kuma" ${widget.type === 'uptime-kuma' ? 'selected' : ''}>Uptime Kuma</option>
-                        <option value="iframe" ${widget.type === 'iframe' ? 'selected' : ''}>iFrame</option>
                         <option value="clock" ${widget.type === 'clock' ? 'selected' : ''}>Clock</option>
-                        <option value="system-stats" ${widget.type === 'system-stats' ? 'selected' : ''}>System Stats</option>
+                        <option value="uptime-kuma" ${widget.type === 'uptime-kuma' ? 'selected' : ''}>Uptime Kuma</option>
                         <option value="rss" ${widget.type === 'rss' ? 'selected' : ''}>RSS Feed</option>
+                        <option value="iframe" ${widget.type === 'iframe' ? 'selected' : ''}>iFrame</option>
                         <option value="header" ${widget.type === 'header' ? 'selected' : ''}>Header</option>
+                        <option value="system-stats" ${widget.type === 'system-stats' ? 'selected' : ''}>System Stats</option>
                     </select>
                 </div>
                 <div class="eight columns">
@@ -204,11 +207,11 @@ function renderWidgetsEditor() {
             </div>
             <div class="row">
                 <div class="twelve columns">
-                    <label>Config (key: value, one per line)</label>
+                    <label>Config (key: value, one per line)${!hasConfig ? ' - No configuration needed' : ''}</label>
                     <textarea class="u-full-width" rows="3"
                         onchange="updateWidgetConfig(${index}, this.value)"
-                        placeholder="url: https://example.com&#10;slug: status"
-                        ${isHeader ? 'disabled' : ''}>${escapeHtml(configPairs)}</textarea>
+                        placeholder="${escapeHtml(placeholder)}"
+                        ${!hasConfig ? 'disabled' : ''}>${escapeHtml(configPairs)}</textarea>
                 </div>
             </div>
         `;
@@ -263,6 +266,47 @@ function updateItem(sectionIndex, itemIndex, field, value) {
     }
 }
 
+// Widget type configurations
+const widgetConfigTemplates = {
+    'header': {
+        hasConfig: false,
+        defaults: {}
+    },
+    'clock': {
+        hasConfig: false,
+        defaults: {}
+    },
+    'uptime-kuma': {
+        hasConfig: true,
+        defaults: {
+            url: 'http://uptime-kuma:3001',
+            slug: 'status'
+        },
+        placeholder: 'url: http://uptime-kuma:3001\nslug: status'
+    },
+    'rss': {
+        hasConfig: true,
+        defaults: {
+            url: 'https://example.com/feed.xml',
+            items_per_page: '3',
+            refresh: '300'
+        },
+        placeholder: 'url: https://example.com/feed.xml\nitems_per_page: 3\nrefresh: 300'
+    },
+    'iframe': {
+        hasConfig: true,
+        defaults: {
+            url: 'https://example.com',
+            height: '400px'
+        },
+        placeholder: 'url: https://example.com\nheight: 400px'
+    },
+    'system-stats': {
+        hasConfig: false,
+        defaults: {}
+    }
+};
+
 // Widget operations
 function addWidget() {
     currentConfig.widgets.push({
@@ -277,11 +321,26 @@ function removeWidget(index) {
     if (confirm('Remove this widget?')) {
         currentConfig.widgets.splice(index, 1);
         renderWidgetsEditor();
-        }
+    }
 }
 
 function updateWidget(index, field, value) {
     currentConfig.widgets[index][field] = value;
+
+    // When changing widget type, update config to appropriate defaults
+    if (field === 'type') {
+        const template = widgetConfigTemplates[value];
+        if (template) {
+            if (template.hasConfig) {
+                // Set default config for widgets that need configuration
+                currentConfig.widgets[index].config = { ...template.defaults };
+            } else {
+                // Clear config for widgets that don't need it
+                currentConfig.widgets[index].config = {};
+            }
+        }
+    }
+
     renderWidgetsEditor();
 }
 

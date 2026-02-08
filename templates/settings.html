@@ -12,7 +12,12 @@
     <link rel="stylesheet" href="/static/css/normalize.css">
     <link rel="stylesheet" href="/static/css/skeleton.css">
     <link rel="stylesheet" href="/static/css/custom.css">
-    
+
+    {{if and .Theme.FontFamily (ne .Theme.FontFamily "system") (ne .Theme.FontFamily "Arial") (ne .Theme.FontFamily "Helvetica") (ne .Theme.FontFamily "Georgia") (ne .Theme.FontFamily "Times New Roman") (ne .Theme.FontFamily "Courier New") (ne .Theme.FontFamily "Verdana") (ne .Theme.FontFamily "Trebuchet MS") (ne .Theme.FontFamily "Impact")}}
+    <!-- Google Font -->
+    <link rel="stylesheet" href="/fonts/{{normalizeFont .Theme.FontFamily}}.css">
+    {{end}}
+
     <style>
         :root {
             --primary-color: {{.Theme.PrimaryColor}};
@@ -20,6 +25,15 @@
             --bg-color: {{.Theme.BackgroundColor}};
             --card-color: {{.Theme.CardColor}};
             --text-color: {{.Theme.TextColor}};
+            {{if .Theme.FontFamily}}
+            {{if eq .Theme.FontFamily "system"}}
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            {{else}}
+            --font-family: "{{.Theme.FontFamily}}", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            {{end}}
+            {{else}}
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            {{end}}
         }
     </style>
 </head>
@@ -27,10 +41,14 @@
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <div class="row">
-                <div class="twelve columns">
-                    <a href="/" class="back-link">← Back to Dashboard</a>
-                    <h1 class="title">Settings</h1>
+            <div class="header-card">
+                <div class="row">
+                    <div class="ten columns">
+                        <h1 class="title">Settings</h1>
+                    </div>
+                    <div class="two columns header-actions">
+                        <a href="/" class="header-icon-btn" title="Back to Dashboard"><i data-lucide="arrow-left"></i></a>
+                    </div>
                 </div>
             </div>
         </header>
@@ -163,7 +181,9 @@
                         <div id="services-editor">
                             <!-- Populated by JavaScript -->
                         </div>
-                        <button class="button" onclick="addSection()">+ Add Section</button>
+                        <div class="row settings-card-footer">
+                            <button class="button" onclick="addSection()">+ Add Section</button>
+                        </div>
                     </div>
 
                     <!-- Widgets Editor -->
@@ -172,11 +192,13 @@
                         <div id="widgets-editor">
                             <!-- Populated by JavaScript -->
                         </div>
-                        <button class="button" onclick="addWidget()">+ Add Widget</button>
+                        <div class="row settings-card-footer">
+                            <button class="button" onclick="addWidget()">+ Add Widget</button>
+                        </div>
                     </div>
 
                     <!-- Actions -->
-                    <div class="row" style="margin-top: 2rem;">
+                    <div class="row settings-actions">
                         <div class="twelve columns">
                             <button class="button button-primary" onclick="saveConfig()">💾 Save Configuration</button>
                             <button class="button" onclick="cleanUnusedAssets()" style="margin-left: 1rem;">🧹 Clean Unused Assets</button>
@@ -186,6 +208,11 @@
                 </div>
             </div>
         </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Statis • <a href="/">Dashboard</a></p>
+        </footer>
     </div>
 
     <!-- Icon Picker Modal -->
@@ -216,6 +243,8 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>lucide.createIcons();</script>
     <script src="/static/js/utils.js"></script>
     <script src="/static/js/settings.js"></script>
 </body>
