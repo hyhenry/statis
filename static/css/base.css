@@ -1,0 +1,76 @@
+/* Base styles - CSS variables and typography */
+
+:root {
+    --primary-color: #33C3F0;
+    --secondary-color: #33C3F0;
+    --bg-color: #1a1a2e;
+    --card-color: #16213e;
+    --text-color: #eaeaea;
+
+    /* Status indicator colors */
+    --status-up-color: #2ecc71;
+    --status-up-glow: rgba(46, 204, 113, 0.5);
+    --status-down-color: #e74c3c;
+    --status-down-glow: rgba(231, 76, 60, 0.5);
+    --status-pending-color: #f39c12;
+    --status-pending-glow: rgba(243, 156, 18, 0.5);
+
+    /* Scrollbar colors */
+    --scrollbar-track: rgba(255, 255, 255, 0.05);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.3);
+
+    /* Card sizing */
+    --card-content-height: 40px;
+}
+
+/* Base overrides */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+    min-height: 100vh;
+}
+
+p {
+    color: var(--text-color);
+}
+
+a {
+    color: var(--secondary-color);
+}
+
+a:hover {
+    color: var(--secondary-color);
+    opacity: 0.9;
+}
+
+h5 {
+    color: var(--secondary-color);
+    font-size: 1.5rem;
+}
+
+.container {
+    width: 90%;
+    max-width: none;
+    padding: 15px;
+    margin: 0 auto;
+}
+
+/* Utility classes */
+.mt-1 { margin-top: 1rem; }
+.mt-1-5 { margin-top: 1.5rem; }
+.ml-1 { margin-left: 1rem; }
+
+/* Widget error messages */
+.widget-error {
+    color: #e74c3c;
+}
+
+.widget-error-url {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.widget-error-muted {
+    color: rgba(255, 255, 255, 0.6);
+}

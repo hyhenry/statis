@@ -1,0 +1,81 @@
+/* Service Cards */
+
+.services-section {
+    margin-bottom: 2rem;
+}
+
+/* Dynamic grid for service cards */
+.service-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cards-per-row, 3), 1fr);
+    gap: 1rem;
+}
+
+.service-card-wrapper {
+    min-width: 0; /* Prevent grid blowout */
+}
+
+.service-card {
+    display: flex;
+    align-items: center;
+    background-color: var(--card-color);
+    border-radius: 8px;
+    padding: 0.9rem;
+    text-decoration: none;
+    color: var(--text-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.service-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-color);
+}
+
+.service-icon {
+    flex-shrink: 0;
+    width: var(--card-content-height);
+    height: var(--card-content-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+}
+
+.icon-img {
+    max-width: 28px;
+    max-height: 28px;
+    object-fit: contain;
+}
+
+.icon-text {
+    font-size: 20px;
+}
+
+.service-info {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.service-name {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.service-desc {
+    margin: 0.2rem 0 0 0;
+    font-size: 1.15rem;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

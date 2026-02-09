@@ -1,0 +1,382 @@
+/* Widgets */
+
+.widgets-section {
+    margin-bottom: 2rem;
+}
+
+.widget {
+    background-color: var(--card-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.widget[data-type="header"] {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+.widget[data-type="header"] .widget-content {
+    padding: 0;
+}
+
+.widget.collapsed {
+    padding: 0.9rem;
+}
+
+.widget.collapsed .widget-header {
+    margin-bottom: 0;
+}
+
+.widget-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    gap: 0.4rem;
+}
+
+.widget-title {
+    color: var(--primary-color);
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 500;
+}
+
+.widget-toggle {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0 0.5rem;
+    transition: transform 0.2s ease;
+    opacity: 0.7;
+    margin-left: auto;
+    margin-top: 0.5rem;
+    line-height: 1;
+}
+
+.widget-toggle:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.widget-toggle.collapsed {
+    transform: rotate(-90deg);
+}
+
+.widget-content {
+    color: var(--text-color);
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+}
+
+.widget.collapsed .widget-content {
+    display: none;
+}
+
+.widget-content .loading {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* System Stats Widget */
+.system-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.2rem;
+}
+
+.stat-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+}
+
+.stat-value {
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-bar {
+    height: 8px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.stat-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+.stat-fill-cpu {
+    background: linear-gradient(90deg, rgba(51, 195, 240, 0.6), rgba(51, 195, 240, 1));
+}
+
+.stat-fill-ram {
+    background: linear-gradient(90deg, rgba(46, 204, 113, 0.6), rgba(46, 204, 113, 1));
+}
+
+.stat-sub {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Overall Status Indicator (Collapsed State) */
+.overall-status {
+    display: none;
+    align-items: center;
+    padding-left: 1rem;
+}
+
+.widget.collapsed .overall-status {
+    display: flex;
+}
+
+.overall-status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.overall-status-indicator.status-up {
+    background-color: var(--status-up-color);
+    box-shadow: 0 0 8px var(--status-up-glow);
+}
+
+.overall-status-indicator.status-down {
+    background-color: var(--status-down-color);
+    box-shadow: 0 0 8px var(--status-down-glow);
+}
+
+.overall-status-indicator.status-pending {
+    background-color: var(--status-pending-color);
+    box-shadow: 0 0 8px var(--status-pending-glow);
+}
+
+.overall-status-text {
+    margin-left: 0.8rem;
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+}
+
+/* Uptime Kuma Widget Specific */
+.widget[data-type="uptime-kuma"] {
+    padding: 0.9rem;
+}
+
+.widget[data-type="uptime-kuma"].collapsed {
+    padding: 0.9rem;
+    box-sizing: border-box;
+}
+
+.widget[data-type="uptime-kuma"] .widget-header {
+    align-items: center;
+    height: var(--card-content-height);
+}
+
+.widget[data-type="rss"] .widget-header {
+    height: var(--card-content-height);
+}
+
+.widget[data-type="uptime-kuma"] .widget-title {
+    line-height: 1.2;
+}
+
+.status-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 0.8rem;
+    flex-shrink: 0;
+}
+
+.status-up {
+    background-color: var(--status-up-color);
+    box-shadow: 0 0 8px var(--status-up-glow);
+}
+
+.status-down {
+    background-color: var(--status-down-color);
+    box-shadow: 0 0 8px var(--status-down-glow);
+}
+
+.status-pending {
+    background-color: var(--status-pending-color);
+    box-shadow: 0 0 8px var(--status-pending-glow);
+}
+
+.status-name {
+    flex-grow: 1;
+    font-size: 1.3rem;
+}
+
+.status-uptime {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* RSS Widget */
+.rss-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.rss-item {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rss-item:first-child {
+    padding-top: 0;
+}
+
+.rss-item:last-child {
+    border-bottom: none;
+}
+
+.rss-thumb {
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.rss-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.rss-body {
+    min-width: 0;
+}
+
+.rss-title {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+    text-decoration: none;
+    margin-bottom: 0.4rem;
+    line-height: 1.4;
+}
+
+.rss-title:hover {
+    text-decoration: underline;
+    opacity: 0.9;
+}
+
+.rss-description {
+    font-size: 1.15rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 0.4rem 0;
+    line-height: 1.5;
+}
+
+.rss-date {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.rss-empty {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.rss-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rss-nav-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: var(--text-color);
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.rss-nav-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.rss-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.rss-page-info {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.6);
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Clock Widget */
+.clock-display {
+    text-align: center;
+}
+
+.clock-time {
+    font-size: 3rem;
+    font-weight: 300;
+    margin-bottom: 0.5rem;
+}
+
+.clock-date {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.2rem;
+}

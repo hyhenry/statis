@@ -107,7 +107,7 @@ function renderServicesEditor() {
                 <input type="text" value="${escapeHtml(section.name)}"
                     placeholder="Section Name"
                     onchange="updateSectionName(${sectionIndex}, this.value)"
-                    style="margin: 0; font-weight: bold;">
+                    class="section-name-input">
                 <button class="button remove-btn" onclick="removeSection(${sectionIndex})">Remove</button>
             </div>
             <div class="section-items-scroll" id="section-${sectionIndex}-items">
@@ -124,7 +124,7 @@ function renderItemEditor(sectionIndex, itemIndex, item) {
         ? `<img src="${escapeHtml(item.icon)}" class="icon-preview" alt="icon">`
         : '';
     return `
-        <div class="service-item-editor" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+        <div class="service-item-editor">
             <div class="row">
                 <div class="three columns">
                     <label>Name</label>
@@ -505,165 +505,13 @@ async function saveConfigSilently() {
 }
 
 // escapeHtml is provided by utils.js
+// IconPicker module is provided by icon-picker.js
 
-// Icon Picker
-let iconPickerState = {
-    sectionIndex: null,
-    itemIndex: null,
-    mode: null, // 'service' or 'favicon'
-    icons: [],
-    searchTimeout: null
-};
-
-function openIconPicker(sectionIndexOrMode, itemIndex) {
-    // Check if opening for favicon (first arg is 'favicon' string)
-    if (sectionIndexOrMode === 'favicon') {
-        iconPickerState.mode = 'favicon';
-        iconPickerState.sectionIndex = null;
-        iconPickerState.itemIndex = null;
-    } else {
-        iconPickerState.mode = 'service';
-        iconPickerState.sectionIndex = sectionIndexOrMode;
-        iconPickerState.itemIndex = itemIndex;
-    }
-
-    const modal = document.getElementById('icon-picker-modal');
-    modal.style.display = 'block';
-
-    const searchInput = document.getElementById('icon-search');
-    searchInput.value = '';
-    searchInput.focus();
-
-    // Load icons if not already loaded
-    if (iconPickerState.icons.length === 0) {
-        loadIcons();
-    } else {
-        renderIconGrid(iconPickerState.icons);
-    }
-
-    // Setup search with debounce
-    searchInput.oninput = function() {
-        clearTimeout(iconPickerState.searchTimeout);
-        iconPickerState.searchTimeout = setTimeout(() => {
-            searchIcons(this.value);
-        }, 300);
-    };
-}
-
-function closeIconPicker() {
-    const modal = document.getElementById('icon-picker-modal');
-    modal.style.display = 'none';
-    iconPickerState.sectionIndex = null;
-    iconPickerState.itemIndex = null;
-    iconPickerState.mode = null;
-}
-
-async function loadIcons() {
-    const grid = document.getElementById('icon-grid');
-    const countEl = document.getElementById('icon-count');
-
-    grid.innerHTML = '<div class="icon-picker-loading">Loading icons...</div>';
-
-    try {
-        const response = await fetch('/api/icons/search');
-        const data = await response.json();
-
-        iconPickerState.icons = data.icons || [];
-        countEl.textContent = `${iconPickerState.icons.length} icons available`;
-        renderIconGrid(iconPickerState.icons);
-    } catch (error) {
-        console.error('Failed to load icons:', error);
-        grid.innerHTML = '<div class="icon-picker-loading">Failed to load icons</div>';
-        countEl.textContent = 'Error loading icons';
-    }
-}
-
-async function searchIcons(query) {
-    const grid = document.getElementById('icon-grid');
-    const countEl = document.getElementById('icon-count');
-
-    try {
-        const response = await fetch(`/api/icons/search?q=${encodeURIComponent(query)}`);
-        const data = await response.json();
-
-        countEl.textContent = `${data.total} icons found`;
-        renderIconGrid(data.icons || []);
-    } catch (error) {
-        console.error('Failed to search icons:', error);
-    }
-}
-
-function renderIconGrid(icons) {
-    const grid = document.getElementById('icon-grid');
-    const cdnBase = 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg';
-
-    if (icons.length === 0) {
-        grid.innerHTML = '<div class="icon-picker-loading">No icons found</div>';
-        return;
-    }
-
-    // Limit to first 100 for performance
-    const displayIcons = icons.slice(0, 100);
-
-    grid.innerHTML = displayIcons.map(icon => `
-        <div class="icon-picker-item" onclick="selectIcon('${escapeHtml(icon)}')" title="${escapeHtml(icon)}">
-            <img src="${cdnBase}/${icon}.svg" alt="${escapeHtml(icon)}" loading="lazy"
-                onerror="this.style.display='none'">
-            <span>${escapeHtml(icon.length > 12 ? icon.substring(0, 10) + '...' : icon)}</span>
-        </div>
-    `).join('');
-
-    if (icons.length > 100) {
-        grid.innerHTML += `<div class="icon-picker-loading" style="grid-column: 1/-1; padding: 1rem;">
-            Showing first 100 of ${icons.length} results. Use search to narrow down.
-        </div>`;
-    }
-}
-
-async function selectIcon(iconName) {
-    const { sectionIndex, itemIndex, mode } = iconPickerState;
-
-    // Validate we have proper state
-    if (mode === 'service' && (sectionIndex === null || itemIndex === null)) {
-        closeIconPicker();
-        return;
-    }
-    if (mode !== 'service' && mode !== 'favicon') {
-        closeIconPicker();
-        return;
-    }
-
-    // Show loading state
-    const grid = document.getElementById('icon-grid');
-    const selectedItem = grid.querySelector(`[title="${iconName}"]`);
-    if (selectedItem) {
-        selectedItem.classList.add('selected');
-    }
-
-    try {
-        // Download the icon
-        const response = await fetch('/api/icons/download', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: iconName, format: 'svg' })
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to download icon');
-        }
-
-        const result = await response.json();
-        const iconPath = result.path;
-
-        if (mode === 'favicon') {
-            // Update favicon in config
-            currentConfig.theme.favicon = iconPath;
-            currentConfig.theme.favicon_name = iconName;
-
-            // Update favicon preview
-            updateFaviconPreview(iconPath);
-        } else {
-            // Update service icon
+// Initialize IconPicker with callbacks
+document.addEventListener('DOMContentLoaded', function() {
+    IconPicker.init({
+        onServiceIconSelected: function(sectionIndex, itemIndex, iconPath, iconName) {
+            // Update service icon in config
             currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
             currentConfig.services[sectionIndex].items[itemIndex].icon_name = iconName;
 
@@ -675,199 +523,28 @@ async function selectIcon(iconName) {
 
             // Re-render to show preview
             renderServicesEditor();
-        }
-
-        closeIconPicker();
-    } catch (error) {
-        console.error('Failed to select icon:', error);
-        alert('Failed to download icon. Please try again.');
-        if (selectedItem) {
-            selectedItem.classList.remove('selected');
-        }
-    }
-}
-
-// Close modal when clicking outside
-document.addEventListener('click', function(e) {
-    const modal = document.getElementById('icon-picker-modal');
-    if (e.target === modal) {
-        closeIconPicker();
-    }
-});
-
-// Close modal on escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeIconPicker();
-    }
-});
-
-// Icon Upload functionality
-function initializeIconUpload() {
-    const dropzone = document.getElementById('icon-upload-dropzone');
-    const fileInput = document.getElementById('icon-upload-input');
-
-    if (!dropzone || !fileInput) return;
-
-    // Drag and drop events
-    dropzone.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        dropzone.classList.add('dragover');
-    });
-
-    dropzone.addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        dropzone.classList.remove('dragover');
-    });
-
-    dropzone.addEventListener('drop', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        dropzone.classList.remove('dragover');
-
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            handleIconUpload(files[0]);
-        }
-    });
-
-    // File input change event
-    fileInput.addEventListener('change', function() {
-        if (this.files.length > 0) {
-            handleIconUpload(this.files[0]);
-            this.value = ''; // Reset input for next upload
-        }
-    });
-}
-
-async function handleIconUpload(file) {
-    const { sectionIndex, itemIndex, mode } = iconPickerState;
-
-    // Validate we have proper state
-    if (mode === 'service' && (sectionIndex === null || itemIndex === null)) {
-        alert('Please select a service first');
-        return;
-    }
-    if (mode !== 'service' && mode !== 'favicon') {
-        alert('Invalid icon picker state');
-        return;
-    }
-
-    // Validate file type
-    const allowedTypes = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-    const allowedExts = ['.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp'];
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-
-    if (!allowedTypes.includes(file.type) && !allowedExts.includes(ext)) {
-        alert('Invalid file type. Allowed: SVG, PNG, JPG, GIF, WebP');
-        return;
-    }
-
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-        alert('File too large. Maximum size is 5MB.');
-        return;
-    }
-
-    // Show uploading state
-    const dropzone = document.getElementById('icon-upload-dropzone');
-    const originalContent = dropzone.innerHTML;
-    dropzone.innerHTML = '<span class="upload-text">Uploading...</span>';
-
-    try {
-        const formData = new FormData();
-        formData.append('icon', file);
-
-        const response = await fetch('/api/icons/upload', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || 'Upload failed');
-        }
-
-        const result = await response.json();
-        const iconPath = result.path;
-
-        if (mode === 'favicon') {
-            // Update favicon in config - clear favicon_name since we're uploading directly
+        },
+        onFaviconSelected: function(iconPath, iconName) {
+            // Update favicon in config
             currentConfig.theme.favicon = iconPath;
-            currentConfig.theme.favicon_name = '';
+            currentConfig.theme.favicon_name = iconName;
 
             // Update favicon preview
             updateFaviconPreview(iconPath);
-        } else {
-            // Update the config - clear icon_name since we're setting icon directly via upload
-            currentConfig.services[sectionIndex].items[itemIndex].icon = iconPath;
-            currentConfig.services[sectionIndex].items[itemIndex].icon_name = '';
+        },
+        renderServicesEditor: renderServicesEditor
+    });
 
-            // Update the input field
-            const input = document.getElementById(`icon-${sectionIndex}-${itemIndex}`);
-            if (input) {
-                input.value = iconPath;
-            }
+    // Override clearFavicon from icon-picker.js
+    clearFavicon = function() {
+        currentConfig.theme.favicon = '';
+        currentConfig.theme.favicon_name = '';
+        updateFaviconPreview('');
+    };
+});
 
-            // Re-render to show preview
-            renderServicesEditor();
-        }
-
-        closeIconPicker();
-    } catch (error) {
-        console.error('Failed to upload icon:', error);
-        alert('Failed to upload icon: ' + (error.message || 'Unknown error'));
-        dropzone.innerHTML = originalContent;
-    }
+// Wrapper function for template onclick handlers
+function openIconPicker(sectionIndexOrMode, itemIndex) {
+    IconPicker.open(sectionIndexOrMode, itemIndex);
 }
 
-// Initialize upload when modal opens
-const originalOpenIconPicker = openIconPicker;
-openIconPicker = function(sectionIndexOrMode, itemIndex) {
-    originalOpenIconPicker(sectionIndexOrMode, itemIndex);
-    // Re-initialize upload handlers each time modal opens
-    setTimeout(initializeIconUpload, 0);
-};
-
-// Favicon helper functions
-function updateFaviconPreview(iconPath) {
-    const preview = document.getElementById('favicon-preview');
-    if (preview) {
-        if (iconPath) {
-            preview.innerHTML = `<img src="${escapeHtml(iconPath)}" alt="Favicon" class="favicon-img">`;
-        } else {
-            preview.innerHTML = '<span class="favicon-placeholder">🌐</span>';
-        }
-    }
-    // Re-render the General section to show/hide clear button
-    updateFaviconClearButton(!!iconPath);
-}
-
-function updateFaviconClearButton(hasFavicon) {
-    const picker = document.querySelector('.favicon-picker');
-    if (!picker) return;
-
-    // Remove existing clear button if any
-    const existingClearBtn = picker.querySelector('.favicon-clear-btn');
-    if (existingClearBtn) {
-        existingClearBtn.remove();
-    }
-
-    // Add clear button if there's a favicon
-    if (hasFavicon) {
-        const clearBtn = document.createElement('button');
-        clearBtn.type = 'button';
-        clearBtn.className = 'button favicon-clear-btn';
-        clearBtn.textContent = 'Clear';
-        clearBtn.onclick = clearFavicon;
-        picker.appendChild(clearBtn);
-    }
-}
-
-function clearFavicon() {
-    currentConfig.theme.favicon = '';
-    currentConfig.theme.favicon_name = '';
-    updateFaviconPreview('');
-}

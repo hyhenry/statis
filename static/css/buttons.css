@@ -1,0 +1,59 @@
+/* Buttons */
+
+.button {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    font-size: 1.15rem;
+}
+
+.button:hover {
+    background-color: #1EAEDB;
+    color: white;
+    border-color: #1EAEDB;
+}
+
+.button-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.button-primary:hover {
+    background-color: #1EAEDB;
+    border-color: #1EAEDB;
+}
+
+.remove-btn {
+    background-color: #e74c3c;
+    border-color: #e74c3c;
+    color: white;
+    padding: 0 15px;
+    height: 30px;
+    line-height: 28px;
+    font-size: 10px;
+}
+
+.remove-btn:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+    color: white;
+}
+
+.add-item-btn {
+    background-color: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.6);
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.add-item-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+#save-status, #yaml-save-status {
+    margin-left: 1rem;
+    color: #2ecc71;
+}

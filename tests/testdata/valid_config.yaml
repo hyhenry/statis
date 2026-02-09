@@ -1,0 +1,24 @@
+title: "Test Dashboard"
+subtitle: "Test subtitle"
+theme:
+  primary_color: "#33C3F0"
+  secondary_color: "#6d837b"
+  background_color: "#1a1a2e"
+  card_color: "#16213e"
+  text_color: "#eaeaea"
+  font_family: "system"
+layout:
+  widget_columns: 4
+  service_columns: 8
+  cards_per_row: 3
+services:
+  - name: "Test Section"
+    items:
+      - name: "Test Service"
+        url: "https://example.com"
+        icon_text: "🔗"
+        description: "A test service"
+widgets:
+  - type: "clock"
+    title: "Test Clock"
+    config: {}

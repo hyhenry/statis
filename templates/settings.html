@@ -70,7 +70,7 @@
                                 <input class="u-full-width" type="text" id="subtitle" value="{{.Subtitle}}">
                             </div>
                         </div>
-                        <div class="row" style="margin-top: 1rem;">
+                        <div class="row mt-1">
                             <div class="six columns">
                                 <label>Favicon</label>
                                 <div class="favicon-picker">
@@ -161,7 +161,7 @@
                                         <p class="help-text">Adjust the width ratio between widgets and services columns (total: 12)</p>
                                     </div>
                                 </div>
-                                <div class="row" style="margin-top: 1.5rem;">
+                                <div class="row mt-1-5">
                                     <div class="twelve columns">
                                         <label>Service Cards Per Row</label>
                                         <div class="layout-slider-container">
@@ -201,7 +201,7 @@
                     <div class="row settings-actions">
                         <div class="twelve columns">
                             <button class="button button-primary" onclick="saveConfig()">💾 Save Configuration</button>
-                            <button class="button" onclick="cleanUnusedAssets()" style="margin-left: 1rem;">🧹 Clean Unused Assets</button>
+                            <button class="button ml-1" onclick="cleanUnusedAssets()">🧹 Clean Unused Assets</button>
                             <span id="save-status"></span>
                         </div>
                     </div>
@@ -238,7 +238,7 @@
             </div>
             <div class="icon-picker-footer">
                 <span id="icon-count">Loading icons...</span>
-                <button class="button" onclick="closeIconPicker()">Cancel</button>
+                <button class="button" onclick="IconPicker.close()">Cancel</button>
             </div>
         </div>
     </div>
@@ -246,6 +246,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>lucide.createIcons();</script>
     <script src="/static/js/utils.js"></script>
+    <script src="/static/js/icon-picker.js"></script>
     <script src="/static/js/settings.js"></script>
 </body>
 </html>
