@@ -1,4 +1,4 @@
-/* Base styles - CSS variables and typography */
+/* Base styles - CSS variables, typography, buttons */
 
 :root {
     --primary-color: #33C3F0;
@@ -6,6 +6,19 @@
     --bg-color: #1a1a2e;
     --card-color: #16213e;
     --text-color: #eaeaea;
+
+    /* Reusable border patterns */
+    --border-subtle: 1px solid rgba(255, 255, 255, 0.05);
+    --border-light: 1px solid rgba(255, 255, 255, 0.1);
+
+    /* Reusable text colors */
+    --text-muted: rgba(255, 255, 255, 0.5);
+    --text-muted-light: rgba(255, 255, 255, 0.6);
+    --text-muted-lighter: rgba(255, 255, 255, 0.7);
+
+    /* Card styling */
+    --card-radius: 8px;
+    --card-padding: 1rem;
 
     /* Status indicator colors */
     --status-up-color: #2ecc71;
@@ -45,8 +58,18 @@ a:hover {
     opacity: 0.9;
 }
 
-h5 {
+/* Universal heading styles */
+h4, h5 {
     color: var(--secondary-color);
+    font-weight: 500;
+    margin: 0;
+}
+
+h4 {
+    font-size: 1.8rem;
+}
+
+h5 {
     font-size: 1.5rem;
 }
 
@@ -62,15 +85,102 @@ h5 {
 .mt-1-5 { margin-top: 1.5rem; }
 .ml-1 { margin-left: 1rem; }
 
+/* Reusable card base */
+.card-base {
+    background-color: var(--card-color);
+    border-radius: var(--card-radius);
+    padding: var(--card-padding);
+    border: var(--border-subtle);
+}
+
+/* Reusable editor header */
+.editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+/* Status indicator base styles */
+.status-up {
+    background-color: var(--status-up-color);
+    box-shadow: 0 0 8px var(--status-up-glow);
+}
+
+.status-down {
+    background-color: var(--status-down-color);
+    box-shadow: 0 0 8px var(--status-down-glow);
+}
+
+.status-pending {
+    background-color: var(--status-pending-color);
+    box-shadow: 0 0 8px var(--status-pending-glow);
+}
+
 /* Widget error messages */
 .widget-error {
-    color: #e74c3c;
+    color: var(--status-down-color);
 }
 
 .widget-error-url {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
 }
 
 .widget-error-muted {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted-light);
+}
+
+/* Buttons */
+
+/* Primary button style (default) - .button-primary is an alias */
+.button,
+.button-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    font-size: 1.15rem;
+}
+
+.button:hover,
+.button-primary:hover {
+    background-color: #1EAEDB;
+    border-color: #1EAEDB;
+    color: white;
+}
+
+/* Danger button */
+.remove-btn {
+    background-color: var(--status-down-color);
+    border-color: var(--status-down-color);
+    color: white;
+    padding: 0 15px;
+    height: 30px;
+    line-height: 28px;
+    font-size: 10px;
+}
+
+.remove-btn:hover {
+    background-color: #c0392b;
+    border-color: #c0392b;
+    color: white;
+}
+
+/* Ghost/outline button */
+.add-item-btn {
+    background-color: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    color: var(--text-muted-light);
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.add-item-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Status indicators */
+#save-status, #yaml-save-status {
+    margin-left: 1rem;
+    color: var(--status-up-color);
 }

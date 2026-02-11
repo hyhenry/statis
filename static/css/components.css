@@ -1,3 +1,87 @@
+/* Components - Service cards and widgets */
+
+/* Service Cards */
+
+.services-section {
+    margin-bottom: 2rem;
+}
+
+/* Dynamic grid for service cards */
+.service-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cards-per-row, 3), 1fr);
+    gap: 1rem;
+}
+
+.service-card-wrapper {
+    min-width: 0; /* Prevent grid blowout */
+}
+
+.service-card {
+    display: flex;
+    align-items: center;
+    background-color: var(--card-color);
+    border-radius: var(--card-radius);
+    padding: 0.9rem;
+    text-decoration: none;
+    color: var(--text-color);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    border: var(--border-subtle);
+}
+
+.service-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-color);
+}
+
+.service-icon {
+    flex-shrink: 0;
+    width: var(--card-content-height);
+    height: var(--card-content-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+}
+
+.icon-img {
+    max-width: 28px;
+    max-height: 28px;
+    object-fit: contain;
+}
+
+.icon-text {
+    font-size: 20px;
+}
+
+.service-info {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.service-name {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--secondary-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.service-desc {
+    margin: 0.2rem 0 0 0;
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Widgets */
 
 .widgets-section {
@@ -6,10 +90,10 @@
 
 .widget {
     background-color: var(--card-color);
-    border-radius: 8px;
-    padding: 1rem;
+    border-radius: var(--card-radius);
+    padding: var(--card-padding);
     margin-bottom: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: var(--border-subtle);
 }
 
 .widget[data-type="header"] {
@@ -79,7 +163,7 @@
 }
 
 .widget-content .loading {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
     font-style: italic;
 }
 
@@ -98,7 +182,7 @@
 }
 
 .stat-label {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-muted-lighter);
     font-weight: 500;
 }
 
@@ -130,7 +214,7 @@
 
 .stat-sub {
     font-size: 1.1rem;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
 }
 
 /* Overall Status Indicator (Collapsed State) */
@@ -152,25 +236,12 @@
     transition: all 0.3s ease;
 }
 
-.overall-status-indicator.status-up {
-    background-color: var(--status-up-color);
-    box-shadow: 0 0 8px var(--status-up-glow);
-}
-
-.overall-status-indicator.status-down {
-    background-color: var(--status-down-color);
-    box-shadow: 0 0 8px var(--status-down-glow);
-}
-
-.overall-status-indicator.status-pending {
-    background-color: var(--status-pending-color);
-    box-shadow: 0 0 8px var(--status-pending-glow);
-}
+/* Status colors inherited from base.css .status-up, .status-down, .status-pending */
 
 .overall-status-text {
     margin-left: 0.8rem;
     font-size: 1.2rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted-light);
     white-space: nowrap;
 }
 
@@ -208,7 +279,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.6rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: var(--border-subtle);
 }
 
 .status-item:last-child {
@@ -223,20 +294,7 @@
     flex-shrink: 0;
 }
 
-.status-up {
-    background-color: var(--status-up-color);
-    box-shadow: 0 0 8px var(--status-up-glow);
-}
-
-.status-down {
-    background-color: var(--status-down-color);
-    box-shadow: 0 0 8px var(--status-down-glow);
-}
-
-.status-pending {
-    background-color: var(--status-pending-color);
-    box-shadow: 0 0 8px var(--status-pending-glow);
-}
+/* Status colors (.status-up, .status-down, .status-pending) defined in base.css */
 
 .status-name {
     flex-grow: 1;
@@ -245,7 +303,7 @@
 
 .status-uptime {
     font-size: 1.2rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted-light);
 }
 
 /* RSS Widget */
@@ -259,7 +317,7 @@
     display: flex;
     gap: 0.75rem;
     padding: 0.75rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: var(--border-subtle);
 }
 
 .rss-item:first-child {
@@ -307,7 +365,7 @@
 
 .rss-description {
     font-size: 1.15rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-muted-lighter);
     margin: 0 0 0.4rem 0;
     line-height: 1.5;
 }
@@ -318,7 +376,7 @@
 }
 
 .rss-empty {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
     font-style: italic;
     text-align: center;
     padding: 1rem 0;
@@ -331,7 +389,7 @@
     gap: 0.75rem;
     margin-top: 0.75rem;
     padding-top: 0.75rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: var(--border-light);
 }
 
 .rss-nav-btn {
@@ -360,7 +418,7 @@
 
 .rss-page-info {
     font-size: 1.2rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted-light);
     min-width: 60px;
     text-align: center;
 }
@@ -377,6 +435,6 @@
 }
 
 .clock-date {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted-light);
     font-size: 1.2rem;
 }

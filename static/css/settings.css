@@ -18,18 +18,16 @@
 
 .settings-card {
     background-color: var(--card-color);
-    border-radius: 8px;
+    border-radius: var(--card-radius);
     padding: 1.25rem;
     margin-bottom: 1.25rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: var(--border-subtle);
 }
 
 .settings-card h4 {
     color: var(--primary-color);
     margin-top: 0;
     margin-bottom: 1rem;
-    font-size: 1.8rem;
-    font-weight: 500;
 }
 
 .settings-card label {
@@ -50,7 +48,7 @@
 .settings-card select,
 .settings-card textarea {
     background-color: var(--bg-color);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: var(--border-light);
     color: var(--text-color);
     font-size: 1.15rem;
 }
@@ -140,7 +138,7 @@
 }
 
 .help-text {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-muted);
     font-size: 1.2rem;
     margin-bottom: 0.75rem;
 }
@@ -203,8 +201,8 @@
     position: relative;
     display: flex;
     background-color: #0d1117;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    border: var(--border-light);
+    border-radius: var(--card-radius);
     overflow: hidden;
     height: 500px;
 }
@@ -220,7 +218,7 @@
     line-height: 1.6;
     text-align: right;
     user-select: none;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: var(--border-light);
     overflow-y: hidden;
     white-space: pre;
     box-sizing: border-box;
@@ -252,26 +250,46 @@ textarea.yaml-editor {
     box-sizing: border-box;
 }
 
-/* Section Editor Cards (Services) */
-#services-editor {
+/* Editor grids */
+#services-editor,
+#widgets-editor {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
 }
 
-.section-editor-card {
+/* Shared editor card styles */
+.section-editor-card,
+.widget-editor-card,
+.editor-item {
     background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 0;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--card-radius);
+    padding: var(--card-padding);
+    border: var(--border-subtle);
 }
 
-.section-editor-header {
+.section-editor-card {
+    margin-bottom: 0;
+}
+
+.editor-item {
+    margin-bottom: 0.75rem;
+}
+
+/* Shared editor headers - use .editor-header from base.css */
+.section-editor-header,
+.widget-editor-header,
+.editor-item-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.75rem;
+}
+
+/* Editor header h5 styling */
+.widget-editor-header h5,
+.editor-item-header h5 {
+    color: var(--text-color);
 }
 
 .section-items-scroll {
@@ -281,63 +299,16 @@ textarea.yaml-editor {
     margin-bottom: 0.75rem;
 }
 
-/* Widget Editor Cards */
-#widgets-editor {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
-}
-
-.widget-editor-card {
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    padding: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.widget-editor-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-}
-
-.widget-editor-header h5 {
-    margin: 0;
-    color: var(--text-color);
-}
-
 .widget-editor-card textarea:disabled {
     opacity: 0.4;
     cursor: not-allowed;
     background-color: rgba(0, 0, 0, 0.3);
 }
 
-/* Service/Widget Editor Items */
-.editor-item {
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 0.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.editor-item-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-}
-
-.editor-item-header h5 {
-    margin: 0;
-    color: var(--text-color);
-}
-
 /* Service item editor */
 .service-item-editor {
     background: rgba(0, 0, 0, 0.2);
-    padding: 1rem;
+    padding: var(--card-padding);
     border-radius: 4px;
     margin-bottom: 1rem;
 }

@@ -6,6 +6,16 @@ document.addEventListener('DOMContentLoaded', function() {
     widgets.forEach(initWidget);
 });
 
+// Helper: Render widget error message using CSS classes from base.css
+function renderWidgetError(message, detail = '') {
+    return `<p class="widget-error">${escapeHtml(message)}${detail ? `<br><small class="widget-error-url">${escapeHtml(detail)}</small>` : ''}</p>`;
+}
+
+// Helper: Render muted info message
+function renderWidgetInfo(message) {
+    return `<p class="widget-error-muted">${escapeHtml(message)}</p>`;
+}
+
 function initWidget(widgetEl) {
     const type = widgetEl.dataset.type;
     const configStr = widgetEl.dataset.config || '{}';
@@ -110,12 +120,7 @@ async function initUptimeKumaWidget(widgetEl, config) {
         }, 60000);
 
     } catch (error) {
-        contentEl.innerHTML = `
-            <p class="error" style="color: #e74c3c;">
-                Unable to connect to Uptime Kuma<br>
-                <small style="color: rgba(255,255,255,0.5);">${config.url}</small>
-            </p>
-        `;
+        contentEl.innerHTML = renderWidgetError('Unable to connect to Uptime Kuma', config.url);
     }
 }
 
@@ -270,11 +275,7 @@ function initSystemStatsWidget(widgetEl, config) {
             const response = await fetch('/api/widget/system-stats');
             if (!response.ok) {
                 if (response.status === 501) {
-                    contentEl.innerHTML = `
-                        <p class="error" style="color: rgba(255, 255, 255, 0.6);">
-                            System stats are available on Linux only.
-                        </p>
-                    `;
+                    contentEl.innerHTML = renderWidgetInfo('System stats are available on Linux only.');
                     if (intervalId) {
                         clearInterval(intervalId);
                     }
@@ -286,11 +287,7 @@ function initSystemStatsWidget(widgetEl, config) {
             const data = await response.json();
             renderSystemStatsWidget(contentEl, data);
         } catch (error) {
-            contentEl.innerHTML = `
-                <p class="error" style="color: #e74c3c;">
-                    Unable to load system stats
-                </p>
-            `;
+            contentEl.innerHTML = renderWidgetError('Unable to load system stats');
         }
     }
 
@@ -378,12 +375,7 @@ async function initRSSWidget(widgetEl, config) {
             currentPage = 0;
             renderRSSWidget();
         } catch (error) {
-            contentEl.innerHTML = `
-                <p class="error" style="color: #e74c3c;">
-                    Unable to load RSS feed<br>
-                    <small style="color: rgba(255,255,255,0.5);">${escapeHtml(config.url)}</small>
-                </p>
-            `;
+            contentEl.innerHTML = renderWidgetError('Unable to load RSS feed', config.url);
         }
     }
 

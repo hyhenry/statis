@@ -19,8 +19,8 @@
 .modal-content {
     background-color: var(--card-color);
     margin: 2% auto;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    border: var(--border-light);
+    border-radius: var(--card-radius);
     width: 90%;
     max-width: 1200px;
     max-height: 90vh;
@@ -34,14 +34,11 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: var(--border-light);
 }
 
 .modal-header h4 {
-    margin: 0;
     color: var(--primary-color);
-    font-size: 1.8rem;
-    font-weight: 500;
 }
 
 .modal-close {
@@ -79,7 +76,7 @@
 
 .modal-footer {
     padding: 1rem 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: var(--border-light);
     display: flex;
     justify-content: flex-end;
     align-items: center;
@@ -94,12 +91,12 @@
 
 .icon-picker-search {
     padding: 0.75rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: var(--border-light);
 }
 
 .icon-picker-search input {
     background-color: var(--bg-color);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: var(--border-light);
     color: var(--text-color);
     margin-bottom: 0;
 }
@@ -111,13 +108,13 @@
 /* Icon Upload Area */
 .icon-upload-area {
     padding: 0.75rem 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: var(--border-light);
 }
 
 .icon-upload-dropzone {
     border: 2px dashed rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 1rem;
+    border-radius: var(--card-radius);
+    padding: var(--card-padding);
     text-align: center;
     cursor: pointer;
     transition: border-color 0.2s ease, background-color 0.2s ease;
@@ -183,7 +180,7 @@
     align-items: center;
     justify-content: center;
     padding: 0.5rem;
-    border-radius: 8px;
+    border-radius: var(--card-radius);
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease;
     border: 2px solid transparent;
@@ -207,7 +204,7 @@
 
 .icon-picker-item span {
     font-size: 1rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted-light);
     margin-top: 0.5rem;
     text-align: center;
     max-width: 100%;
@@ -218,14 +215,14 @@
 
 .icon-picker-footer {
     padding: 0.75rem 1.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: var(--border-light);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 #icon-count {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted-light);
     font-size: 1.2rem;
 }
 
@@ -234,7 +231,7 @@
     align-items: center;
     justify-content: center;
     height: 200px;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-muted-light);
 }
 
 /* Icon input group in settings */
@@ -276,8 +273,8 @@
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--card-radius);
+    border: var(--border-light);
 }
 
 .favicon-preview .favicon-img {

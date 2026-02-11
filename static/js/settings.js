@@ -143,7 +143,7 @@ function renderItemEditor(sectionIndex, itemIndex, item) {
                 </div>
                 <div class="one column">
                     <label>&nbsp;</label>
-                    <button class="button remove-btn u-full-width" onclick="removeItem(${sectionIndex}, ${itemIndex})">×</button>
+                    <button class="header-icon-btn" onclick="removeItem(${sectionIndex}, ${itemIndex})">❌</button>
                 </div>
             </div>
             <div class="row">
@@ -355,38 +355,29 @@ function updateWidgetConfig(index, value) {
     currentConfig.widgets[index].config = config;
 }
 
-// Theme updates
+// Theme updates - data-driven approach for color inputs
+const themeColorInputs = [
+    { id: 'primaryColor', prop: 'primary_color', css: '--primary-color' },
+    { id: 'secondaryColor', prop: 'secondary_color', css: '--secondary-color' },
+    { id: 'bgColor', prop: 'background_color', css: '--bg-color' },
+    { id: 'cardColor', prop: 'card_color', css: '--card-color' },
+    { id: 'textColor', prop: 'text_color', css: '--text-color' }
+];
+
+themeColorInputs.forEach(({ id, prop, css }) => {
+    document.getElementById(id)?.addEventListener('change', (e) => {
+        currentConfig.theme[prop] = e.target.value;
+        document.documentElement.style.setProperty(css, e.target.value);
+    });
+});
+
+// Title/subtitle updates
 document.getElementById('title')?.addEventListener('change', (e) => {
     currentConfig.title = e.target.value;
 });
 
 document.getElementById('subtitle')?.addEventListener('change', (e) => {
     currentConfig.subtitle = e.target.value;
-});
-
-document.getElementById('primaryColor')?.addEventListener('change', (e) => {
-    currentConfig.theme.primary_color = e.target.value;
-    document.documentElement.style.setProperty('--primary-color', e.target.value);
-});
-
-document.getElementById('secondaryColor')?.addEventListener('change', (e) => {
-    currentConfig.theme.secondary_color = e.target.value;
-    document.documentElement.style.setProperty('--secondary-color', e.target.value);
-});
-
-document.getElementById('bgColor')?.addEventListener('change', (e) => {
-    currentConfig.theme.background_color = e.target.value;
-    document.documentElement.style.setProperty('--bg-color', e.target.value);
-});
-
-document.getElementById('cardColor')?.addEventListener('change', (e) => {
-    currentConfig.theme.card_color = e.target.value;
-    document.documentElement.style.setProperty('--card-color', e.target.value);
-});
-
-document.getElementById('textColor')?.addEventListener('change', (e) => {
-    currentConfig.theme.text_color = e.target.value;
-    document.documentElement.style.setProperty('--text-color', e.target.value);
 });
 
 // Save configuration

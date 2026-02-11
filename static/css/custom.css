@@ -1,10 +1,7 @@
 /* Custom styles for Statis - Modular CSS */
 
-@import url('base.css');
-@import url('layout.css');
-@import url('cards.css');
-@import url('widgets.css');
-@import url('settings.css');
-@import url('modals.css');
-@import url('buttons.css');
-@import url('responsive.css');
+@import url('base.css');       /* Variables, typography, buttons */
+@import url('layout.css');     /* Header, footer, responsive */
+@import url('components.css'); /* Service cards, widgets */
+@import url('settings.css');   /* Settings page */
+@import url('modals.css');     /* Modals, icon picker */

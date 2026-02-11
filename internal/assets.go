@@ -119,6 +119,32 @@ func GetUsedIcons() map[string]bool {
 	return used
 }
 
+// ensureIconDownloaded checks if an icon exists locally, downloads it if not,
+// and returns the local URL path. Returns empty string on error.
+func ensureIconDownloaded(iconName string) (localURL string, downloaded bool) {
+	if iconName == "" {
+		return "", false
+	}
+
+	iconFileName := iconName + ".svg"
+	iconPath := filepath.Join(IconsDir, iconFileName)
+	localURL = "/icons/" + iconFileName
+
+	// Check if file already exists
+	if _, err := os.Stat(iconPath); err == nil {
+		return localURL, false
+	}
+
+	// Download from CDN
+	iconURL := fmt.Sprintf("%s/svg/%s.svg", IconCDNBase, iconName)
+	if err := DownloadFile(iconURL, iconPath); err != nil {
+		log.Printf("Warning: Failed to download icon '%s': %v", iconName, err)
+		return "", false
+	}
+
+	return localURL, true
+}
+
 // ProcessIconNames downloads icons for any items that have icon_name set.
 // Also processes favicon_name in the theme.
 // Returns true if any config changes were made (icon paths updated).
@@ -138,55 +164,33 @@ func ProcessIconNames(cfg *Config) bool {
 				continue
 			}
 
-			iconFileName := item.IconName + ".svg"
-			iconPath := filepath.Join(IconsDir, iconFileName)
-			localURL := "/icons/" + iconFileName
+			localURL, downloaded := ensureIconDownloaded(item.IconName)
+			if localURL == "" {
+				continue
+			}
 
-			// Check if file exists
-			if _, err := os.Stat(iconPath); err == nil {
-				if item.Icon != localURL {
-					item.Icon = localURL
-					changed = true
+			if item.Icon != localURL {
+				item.Icon = localURL
+				changed = true
+				if downloaded {
+					log.Printf("✓ Downloaded icon for '%s': %s", item.Name, item.IconName)
+				} else {
 					log.Printf("✓ Updated icon path for '%s' to match icon_name: %s", item.Name, item.IconName)
 				}
-				continue
 			}
-
-			// Download from CDN
-			iconURL := fmt.Sprintf("%s/svg/%s.svg", IconCDNBase, item.IconName)
-			if err := DownloadFile(iconURL, iconPath); err != nil {
-				log.Printf("Warning: Failed to download icon '%s': %v", item.IconName, err)
-				continue
-			}
-
-			item.Icon = localURL
-			changed = true
-			log.Printf("✓ Downloaded icon for '%s': %s", item.Name, item.IconName)
 		}
 	}
 
 	// Process favicon_name
 	if cfg.Theme.FaviconName != "" {
-		iconFileName := cfg.Theme.FaviconName + ".svg"
-		iconPath := filepath.Join(IconsDir, iconFileName)
-		localURL := "/icons/" + iconFileName
-
-		// Check if file exists
-		if _, err := os.Stat(iconPath); err == nil {
-			if cfg.Theme.Favicon != localURL {
-				cfg.Theme.Favicon = localURL
-				changed = true
-				log.Printf("✓ Updated favicon path to match favicon_name: %s", cfg.Theme.FaviconName)
-			}
-		} else {
-			// Download from CDN
-			iconURL := fmt.Sprintf("%s/svg/%s.svg", IconCDNBase, cfg.Theme.FaviconName)
-			if err := DownloadFile(iconURL, iconPath); err != nil {
-				log.Printf("Warning: Failed to download favicon icon '%s': %v", cfg.Theme.FaviconName, err)
-			} else {
-				cfg.Theme.Favicon = localURL
-				changed = true
+		localURL, downloaded := ensureIconDownloaded(cfg.Theme.FaviconName)
+		if localURL != "" && cfg.Theme.Favicon != localURL {
+			cfg.Theme.Favicon = localURL
+			changed = true
+			if downloaded {
 				log.Printf("✓ Downloaded favicon icon: %s", cfg.Theme.FaviconName)
+			} else {
+				log.Printf("✓ Updated favicon path to match favicon_name: %s", cfg.Theme.FaviconName)
 			}
 		}
 	}
