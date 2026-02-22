@@ -128,10 +128,6 @@
         margin-left: 0;
     }
 
-    .service-cards-grid {
-        grid-template-columns: 1fr;
-    }
-
     .service-card {
         padding: 0.75rem;
     }
