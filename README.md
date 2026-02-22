@@ -219,7 +219,16 @@ labels:
 ### Project Structure
 ```
 statis/
-├── main.go              # Main application
+├── main.go              # Entry point, route registration, embedded assets
+├── internal/
+│   ├── config.go        # Config structs, loading, saving, file watching
+│   ├── handlers.go      # HTTP handlers for index, settings, API config
+│   ├── widgets.go       # Widget proxies (Uptime Kuma, RSS, system stats)
+│   ├── icons.go         # Icon search, download, upload
+│   ├── assets.go        # Font management, asset cleanup
+│   ├── response.go      # JSON response helpers
+│   └── util.go          # Directory creation, file download utilities
+├── tests/               # Test files
 ├── config.yaml          # Configuration
 ├── icons/               # Downloaded/uploaded icons
 ├── fonts/               # Downloaded Google Fonts
@@ -228,20 +237,27 @@ statis/
 │   └── settings.html    # Settings page
 ├── static/
 │   ├── css/
-│   │   ├── normalize.css
-│   │   ├── skeleton.css
-│   │   └── custom.css
+│   │   ├── custom.css   # Imports all CSS modules
+│   │   ├── base.css     # CSS variables, typography
+│   │   ├── layout.css   # Header, footer, responsive
+│   │   ├── components.css # Service cards, widgets
+│   │   ├── settings.css # Settings page styles
+│   │   ├── modals.css   # Modals, icon picker
+│   │   ├── skeleton.css # Grid framework
+│   │   └── normalize.css
 │   └── js/
-│       ├── widgets.js
-│       ├── settings.js
-│       └── utils.js
+│       ├── widgets.js   # Widget initialization and rendering
+│       ├── settings.js  # Settings UI, form handling
+│       ├── icon-picker.js # Icon picker module
+│       ├── yaml-editor.js # YAML editor modal
+│       └── utils.js     # Shared utilities
 ├── Dockerfile
 └── docker-compose.yaml
 ```
 
 ### Adding Widgets
 
-1. Add handler function in `main.go` (for widgets that need a proxy)
+1. Add handler function in `internal/widgets.go` (for widgets that need a proxy)
 2. Add initialization in `static/js/widgets.js`
 3. Add to widget type dropdown in `static/js/settings.js`
 
