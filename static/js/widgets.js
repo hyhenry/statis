@@ -603,9 +603,24 @@ function renderTrueNASSystem(sys) {
 function renderTrueNASPools(pools) {
     let status = 'up';
     const rows = pools.map(p => {
-        const healthy = p.healthy && (p.status === '' || /online/i.test(p.status));
+        const vdevErrors = (p.read_errors || 0) + (p.write_errors || 0) + (p.checksum_errors || 0);
+        const hasErrors = vdevErrors > 0 || (p.scan_errors || 0) > 0;
+        const healthy = p.healthy && (p.status === '' || /online/i.test(p.status)) && !hasErrors;
         if (!healthy) status = 'down';
         const pct = Math.max(0, Math.min(100, p.used_percent || 0));
+
+        const warnings = [];
+        if (p.status_detail) {
+            warnings.push(`<div class="truenas-pool-warn">${escapeHtml(p.status_detail)}</div>`);
+        }
+        if (vdevErrors > 0) {
+            warnings.push(`<div class="truenas-pool-warn">ZFS errors: ${p.read_errors} read, ${p.write_errors} write, ${p.checksum_errors} checksum</div>`);
+        }
+        if ((p.scan_errors || 0) > 0) {
+            warnings.push(`<div class="truenas-pool-warn">Last ${(p.scan_function || 'scan').toLowerCase()}: ${p.scan_errors} errors</div>`);
+        }
+        const scanInfo = renderScanInfo(p);
+
         return `
             <div class="truenas-pool-row">
                 <div class="truenas-pool-head">
@@ -613,8 +628,10 @@ function renderTrueNASPools(pools) {
                     <span class="truenas-pool-name">${escapeHtml(p.name)}</span>
                     <span class="truenas-pool-status">${escapeHtml(p.status || (healthy ? 'ONLINE' : 'UNKNOWN'))}</span>
                 </div>
-                <div class="stat-bar"><div class="stat-fill-ram" style="width: ${pct.toFixed(1)}%"></div></div>
+                <div class="stat-bar"><div class="stat-fill stat-fill-ram" style="width: ${pct.toFixed(1)}%"></div></div>
                 <div class="truenas-pool-meta">${escapeHtml(formatBytes(p.allocated_bytes))} / ${escapeHtml(formatBytes(p.size_bytes))} (${pct.toFixed(1)}%)</div>
+                ${warnings.join('')}
+                ${scanInfo}
             </div>
         `;
     }).join('');
@@ -625,6 +642,34 @@ function renderTrueNASPools(pools) {
         </div>
     `;
     return { html, status };
+}
+
+function renderScanInfo(p) {
+    if (!p.scan_state && !p.scan_function) return '';
+    const fn = (p.scan_function || 'scan').toLowerCase();
+    const state = (p.scan_state || '').toLowerCase();
+
+    if (state === 'scanning') {
+        const pct = (p.scan_percent || 0).toFixed(1);
+        return `<div class="truenas-pool-scan">${escapeHtml(fn)} in progress — ${pct}%</div>`;
+    }
+    if (p.scan_end_time) {
+        const date = new Date(p.scan_end_time * 1000);
+        const rel = formatRelativeTime(date);
+        return `<div class="truenas-pool-scan">Last ${escapeHtml(fn)}: ${escapeHtml(rel)}</div>`;
+    }
+    return '';
+}
+
+function formatRelativeTime(date) {
+    const diffMs = Date.now() - date.getTime();
+    const days = Math.floor(diffMs / 86400000);
+    if (days < 1) return 'today';
+    if (days === 1) return 'yesterday';
+    if (days < 30) return `${days} days ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
 }
 
 function renderTrueNASDisks(disks) {

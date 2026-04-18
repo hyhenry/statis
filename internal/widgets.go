@@ -448,11 +448,26 @@ type truenasSystem struct {
 type truenasPool struct {
 	Name         string  `json:"name"`
 	Status       string  `json:"status"`
+	StatusDetail string  `json:"status_detail,omitempty"`
 	Healthy      bool    `json:"healthy"`
 	SizeBytes    uint64  `json:"size_bytes"`
 	AllocBytes   uint64  `json:"allocated_bytes"`
 	FreeBytes    uint64  `json:"free_bytes"`
 	UsedPercent  float64 `json:"used_percent"`
+
+	// Aggregate per-vdev error counts from the pool's topology (read + write
+	// + checksum errors across all data vdevs). Non-zero means ZFS has seen
+	// problems even if the pool is still ONLINE.
+	ReadErrors     uint64 `json:"read_errors"`
+	WriteErrors    uint64 `json:"write_errors"`
+	ChecksumErrors uint64 `json:"checksum_errors"`
+
+	// Last scrub/resilver summary.
+	ScanFunction string `json:"scan_function,omitempty"`
+	ScanState    string `json:"scan_state,omitempty"`
+	ScanErrors   uint64 `json:"scan_errors"`
+	ScanEndTime  int64  `json:"scan_end_time,omitempty"` // unix seconds, 0 if unknown
+	ScanPercent  float64 `json:"scan_percent,omitempty"`
 }
 
 type truenasDisk struct {
@@ -593,17 +608,97 @@ func parseTrueNASPools(raw []map[string]interface{}) []truenasPool {
 			usedPct = float64(alloc) / float64(size) * 100
 		}
 		status := getString(p, "status")
+		read, write, cksum := sumVdevErrors(p["topology"])
+		scanFn, scanState, scanErrors, scanEnd, scanPct := parseScan(p["scan"])
 		pools = append(pools, truenasPool{
-			Name:        getString(p, "name"),
-			Status:      status,
-			Healthy:     getBool(p, "healthy") || strings.EqualFold(status, "ONLINE"),
-			SizeBytes:   size,
-			AllocBytes:  alloc,
-			FreeBytes:   free,
-			UsedPercent: usedPct,
+			Name:           getString(p, "name"),
+			Status:         status,
+			StatusDetail:   getString(p, "status_detail"),
+			Healthy:        getBool(p, "healthy") || strings.EqualFold(status, "ONLINE"),
+			SizeBytes:      size,
+			AllocBytes:     alloc,
+			FreeBytes:      free,
+			UsedPercent:    usedPct,
+			ReadErrors:     read,
+			WriteErrors:    write,
+			ChecksumErrors: cksum,
+			ScanFunction:   scanFn,
+			ScanState:      scanState,
+			ScanErrors:     scanErrors,
+			ScanEndTime:    scanEnd,
+			ScanPercent:    scanPct,
 		})
 	}
 	return pools
+}
+
+// sumVdevErrors walks a pool's "topology" object and sums read_errors,
+// write_errors, and checksum_errors across every vdev in every group
+// (data, log, cache, spare). ZFS reports these at each vdev level, so a
+// healthy-looking ONLINE pool can still have accumulated errors worth
+// surfacing.
+func sumVdevErrors(topology interface{}) (read, write, cksum uint64) {
+	topo, ok := topology.(map[string]interface{})
+	if !ok {
+		return
+	}
+	for _, groupVal := range topo {
+		group, ok := groupVal.([]interface{})
+		if !ok {
+			continue
+		}
+		for _, vdevVal := range group {
+			r, w, c := walkVdevErrors(vdevVal)
+			read += r
+			write += w
+			cksum += c
+		}
+	}
+	return
+}
+
+func walkVdevErrors(vdev interface{}) (read, write, cksum uint64) {
+	v, ok := vdev.(map[string]interface{})
+	if !ok {
+		return
+	}
+	if stats, ok := v["stats"].(map[string]interface{}); ok {
+		read += getUint64(stats, "read_errors")
+		write += getUint64(stats, "write_errors")
+		cksum += getUint64(stats, "checksum_errors")
+	}
+	if children, ok := v["children"].([]interface{}); ok {
+		for _, child := range children {
+			r, w, c := walkVdevErrors(child)
+			read += r
+			write += w
+			cksum += c
+		}
+	}
+	return
+}
+
+// parseScan extracts fields from pool.scan. TrueNAS wraps timestamps as
+// {"$date": <epoch-ms>}, so we unwrap that shape for end_time.
+func parseScan(scan interface{}) (function, state string, errors uint64, endUnix int64, percent float64) {
+	s, ok := scan.(map[string]interface{})
+	if !ok {
+		return
+	}
+	function = getString(s, "function")
+	state = getString(s, "state")
+	errors = getUint64(s, "errors")
+	percent = getFloat(s, "percentage")
+	if end, ok := s["end_time"].(map[string]interface{}); ok {
+		if ms, ok := end["$date"].(float64); ok {
+			endUnix = int64(ms / 1000)
+		}
+	} else if ts := getString(s, "end_time"); ts != "" {
+		if t, err := time.Parse(time.RFC3339, ts); err == nil {
+			endUnix = t.Unix()
+		}
+	}
+	return
 }
 
 func parseTrueNASDisks(raw []map[string]interface{}) []truenasDisk {

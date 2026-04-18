@@ -545,12 +545,41 @@ func newMockTrueNASServer(t *testing.T, counters *truenasMockCounters, failSecti
 			}
 			json.NewEncoder(w).Encode([]map[string]interface{}{
 				{
-					"name":      "tank",
-					"status":    "ONLINE",
-					"healthy":   true,
-					"size":      1000000000000.0,
-					"allocated": 400000000000.0,
-					"free":      600000000000.0,
+					"name":          "tank",
+					"status":        "ONLINE",
+					"status_detail": "",
+					"healthy":       true,
+					"size":          1000000000000.0,
+					"allocated":     400000000000.0,
+					"free":          600000000000.0,
+					"scan": map[string]interface{}{
+						"function":   "SCRUB",
+						"state":      "FINISHED",
+						"errors":     0.0,
+						"percentage": 100.0,
+						"end_time":   map[string]interface{}{"$date": 1700000000000.0},
+					},
+					"topology": map[string]interface{}{
+						"data": []interface{}{
+							map[string]interface{}{
+								"type": "RAIDZ2",
+								"stats": map[string]interface{}{
+									"read_errors":     0.0,
+									"write_errors":    2.0,
+									"checksum_errors": 0.0,
+								},
+								"children": []interface{}{
+									map[string]interface{}{
+										"stats": map[string]interface{}{
+											"read_errors":     1.0,
+											"write_errors":    0.0,
+											"checksum_errors": 0.0,
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			})
 		case "/api/v2.0/disk":
@@ -615,6 +644,21 @@ func TestHandleTrueNASSCALEWidget_MockServer(t *testing.T) {
 	}
 	if pct := pool["used_percent"].(float64); pct < 39 || pct > 41 {
 		t.Errorf("Expected ~40%% used, got %v", pct)
+	}
+	if pool["read_errors"].(float64) != 1 {
+		t.Errorf("Expected 1 read error summed from vdev + child, got %v", pool["read_errors"])
+	}
+	if pool["write_errors"].(float64) != 2 {
+		t.Errorf("Expected 2 write errors, got %v", pool["write_errors"])
+	}
+	if pool["scan_function"] != "SCRUB" {
+		t.Errorf("Expected scan_function SCRUB, got %v", pool["scan_function"])
+	}
+	if pool["scan_state"] != "FINISHED" {
+		t.Errorf("Expected scan_state FINISHED, got %v", pool["scan_state"])
+	}
+	if pool["scan_end_time"].(float64) != 1700000000 {
+		t.Errorf("Expected scan_end_time 1700000000 (ms/1000), got %v", pool["scan_end_time"])
 	}
 
 	disks, ok := result["disks"].([]interface{})

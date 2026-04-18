@@ -519,6 +519,19 @@
     font-variant-numeric: tabular-nums;
 }
 
+.truenas-pool-warn {
+    margin-top: 0.3rem;
+    font-size: 1.1rem;
+    color: #e74c3c;
+}
+
+.truenas-pool-scan {
+    margin-top: 0.3rem;
+    font-size: 1.1rem;
+    color: var(--text-muted-light);
+    font-style: italic;
+}
+
 .truenas-disk-list {
     max-height: 240px;
     overflow-y: auto;
