@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -430,4 +432,253 @@ func ExtractFirstImageURL(s string) string {
 func StripHTMLTags(s string) string {
 	re := regexp.MustCompile(`<[^>]*>`)
 	return re.ReplaceAllString(s, "")
+}
+
+// TrueNAS SCALE widget
+
+type truenasSystem struct {
+	Hostname      string  `json:"hostname"`
+	Version       string  `json:"version"`
+	UptimeSeconds float64 `json:"uptime_seconds"`
+	MemoryBytes   uint64  `json:"memory_bytes"`
+	CPUModel      string  `json:"cpu_model"`
+	CPUCores      int     `json:"cpu_cores"`
+}
+
+type truenasPool struct {
+	Name         string  `json:"name"`
+	Status       string  `json:"status"`
+	Healthy      bool    `json:"healthy"`
+	SizeBytes    uint64  `json:"size_bytes"`
+	AllocBytes   uint64  `json:"allocated_bytes"`
+	FreeBytes    uint64  `json:"free_bytes"`
+	UsedPercent  float64 `json:"used_percent"`
+}
+
+type truenasDisk struct {
+	Name        string `json:"name"`
+	Model       string `json:"model"`
+	Serial      string `json:"serial"`
+	SizeBytes   uint64 `json:"size_bytes"`
+	Type        string `json:"type"`
+	Temperature int    `json:"temperature,omitempty"`
+}
+
+// truenasClient is shared for the handler; self-signed certs are common on
+// homelab TrueNAS boxes, so verification is off.
+var truenasClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	},
+}
+
+func fetchTrueNASJSON(url, apiKey string, target interface{}) error {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Accept", "application/json")
+	resp, err := truenasClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+		return fmt.Errorf("upstream status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return json.NewDecoder(resp.Body).Decode(target)
+}
+
+// HandleTrueNASSCALEWidget proxies TrueNAS SCALE REST API (v2.0) calls,
+// fetching only the sections the client opted in to. Any single failing
+// section is returned as a "<section>_error" field rather than failing the
+// whole response, so a borked disk endpoint doesn't hide pool status.
+func HandleTrueNASSCALEWidget(w http.ResponseWriter, r *http.Request) {
+	baseURL := strings.TrimRight(r.URL.Query().Get("url"), "/")
+	apiKey := r.URL.Query().Get("api_key")
+	if baseURL == "" || apiKey == "" {
+		http.Error(w, "Missing url or api_key parameter", http.StatusBadRequest)
+		return
+	}
+
+	showSystem := r.URL.Query().Get("show_system") != "false"
+	showPools := r.URL.Query().Get("show_pools") != "false"
+	showDisks := r.URL.Query().Get("show_disks") != "false"
+
+	response := map[string]interface{}{}
+	var mu sync.Mutex
+	setField := func(key string, value interface{}) {
+		mu.Lock()
+		response[key] = value
+		mu.Unlock()
+	}
+
+	var wg sync.WaitGroup
+
+	if showSystem {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var raw map[string]interface{}
+			if err := fetchTrueNASJSON(baseURL+"/api/v2.0/system/info", apiKey, &raw); err != nil {
+				setField("system_error", err.Error())
+				return
+			}
+			setField("system", parseTrueNASSystem(raw))
+		}()
+	}
+
+	if showPools {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var raw []map[string]interface{}
+			if err := fetchTrueNASJSON(baseURL+"/api/v2.0/pool", apiKey, &raw); err != nil {
+				setField("pools_error", err.Error())
+				return
+			}
+			setField("pools", parseTrueNASPools(raw))
+		}()
+	}
+
+	if showDisks {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var raw []map[string]interface{}
+			if err := fetchTrueNASJSON(baseURL+"/api/v2.0/disk", apiKey, &raw); err != nil {
+				setField("disks_error", err.Error())
+				return
+			}
+			setField("disks", parseTrueNASDisks(raw))
+		}()
+	}
+
+	wg.Wait()
+	WriteJSON(w, response)
+}
+
+func parseTrueNASSystem(raw map[string]interface{}) truenasSystem {
+	sys := truenasSystem{
+		Hostname:      getString(raw, "hostname"),
+		Version:       getString(raw, "version"),
+		UptimeSeconds: getFloat(raw, "uptime_seconds"),
+		MemoryBytes:   getUint64(raw, "physmem"),
+		CPUModel:      getString(raw, "model"),
+		CPUCores:      int(getFloat(raw, "cores")),
+	}
+	return sys
+}
+
+func parseTrueNASPools(raw []map[string]interface{}) []truenasPool {
+	pools := make([]truenasPool, 0, len(raw))
+	for _, p := range raw {
+		size := getUint64Nested(p, "topology", "data") // fallback below
+		if size == 0 {
+			size = getUint64(p, "size")
+		}
+		alloc := getUint64(p, "allocated")
+		if alloc == 0 {
+			alloc = getUint64(p, "used")
+		}
+		free := getUint64(p, "free")
+		if size == 0 && alloc > 0 && free > 0 {
+			size = alloc + free
+		}
+		var usedPct float64
+		if size > 0 {
+			usedPct = float64(alloc) / float64(size) * 100
+		}
+		status := getString(p, "status")
+		pools = append(pools, truenasPool{
+			Name:        getString(p, "name"),
+			Status:      status,
+			Healthy:     getBool(p, "healthy") || strings.EqualFold(status, "ONLINE"),
+			SizeBytes:   size,
+			AllocBytes:  alloc,
+			FreeBytes:   free,
+			UsedPercent: usedPct,
+		})
+	}
+	return pools
+}
+
+func parseTrueNASDisks(raw []map[string]interface{}) []truenasDisk {
+	disks := make([]truenasDisk, 0, len(raw))
+	for _, d := range raw {
+		disks = append(disks, truenasDisk{
+			Name:        getString(d, "name"),
+			Model:       getString(d, "model"),
+			Serial:      getString(d, "serial"),
+			SizeBytes:   getUint64(d, "size"),
+			Type:        getString(d, "type"),
+			Temperature: int(getFloat(d, "temperature")),
+		})
+	}
+	return disks
+}
+
+// Small typed accessors for the loosely-typed TrueNAS JSON payloads.
+
+func getString(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+func getFloat(m map[string]interface{}, key string) float64 {
+	switch v := m[key].(type) {
+	case float64:
+		return v
+	case string:
+		f, _ := strconv.ParseFloat(v, 64)
+		return f
+	}
+	return 0
+}
+
+func getUint64(m map[string]interface{}, key string) uint64 {
+	switch v := m[key].(type) {
+	case float64:
+		if v < 0 {
+			return 0
+		}
+		return uint64(v)
+	case string:
+		n, _ := strconv.ParseUint(v, 10, 64)
+		return n
+	}
+	return 0
+}
+
+func getUint64Nested(m map[string]interface{}, keys ...string) uint64 {
+	cur := m
+	for i, k := range keys {
+		v, ok := cur[k]
+		if !ok {
+			return 0
+		}
+		if i == len(keys)-1 {
+			if n, ok := v.(float64); ok {
+				return uint64(n)
+			}
+			return 0
+		}
+		cur, ok = v.(map[string]interface{})
+		if !ok {
+			return 0
+		}
+	}
+	return 0
+}
+
+func getBool(m map[string]interface{}, key string) bool {
+	if v, ok := m[key].(bool); ok {
+		return v
+	}
+	return false
 }

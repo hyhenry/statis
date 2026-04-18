@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"runtime"
+	"sync/atomic"
 	"testing"
 
 	"statis/internal"
@@ -480,5 +481,243 @@ func TestExtractFirstImageURL_EdgeCases(t *testing.T) {
 				t.Errorf("ExtractFirstImageURL(%q) = %q, expected %q", tc.input, result, tc.expected)
 			}
 		})
+	}
+}
+
+// --- TrueNAS SCALE Widget ---
+
+func TestHandleTrueNASSCALEWidget_MissingParams(t *testing.T) {
+	cases := []struct {
+		name  string
+		query string
+	}{
+		{"no params", ""},
+		{"url only", "?url=https://truenas.local"},
+		{"api_key only", "?api_key=abc"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/widget/truenas-scale"+tc.query, nil)
+			recorder := httptest.NewRecorder()
+			internal.HandleTrueNASSCALEWidget(recorder, req)
+			if recorder.Code != http.StatusBadRequest {
+				t.Errorf("Expected 400, got %d", recorder.Code)
+			}
+		})
+	}
+}
+
+type truenasMockCounters struct {
+	system int32
+	pools  int32
+	disks  int32
+}
+
+func newMockTrueNASServer(t *testing.T, counters *truenasMockCounters, failSection string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Every endpoint must require the Bearer token.
+		if r.Header.Get("Authorization") != "Bearer test-key" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v2.0/system/info":
+			atomic.AddInt32(&counters.system, 1)
+			if failSection == "system" {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"hostname":       "truenas",
+				"version":        "TrueNAS-SCALE-24.04",
+				"uptime_seconds": 12345.0,
+				"physmem":        34359738368.0,
+				"model":          "Intel Xeon E-2236",
+				"cores":          12.0,
+			})
+		case "/api/v2.0/pool":
+			atomic.AddInt32(&counters.pools, 1)
+			if failSection == "pools" {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{
+					"name":      "tank",
+					"status":    "ONLINE",
+					"healthy":   true,
+					"size":      1000000000000.0,
+					"allocated": 400000000000.0,
+					"free":      600000000000.0,
+				},
+			})
+		case "/api/v2.0/disk":
+			atomic.AddInt32(&counters.disks, 1)
+			if failSection == "disks" {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{
+					"name":        "sda",
+					"model":       "WDC WD40EFRX",
+					"serial":      "WD-ABC123",
+					"size":        4000000000000.0,
+					"type":        "HDD",
+					"temperature": 38.0,
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+}
+
+func TestHandleTrueNASSCALEWidget_MockServer(t *testing.T) {
+	var counters truenasMockCounters
+	mock := newMockTrueNASServer(t, &counters, "")
+	defer mock.Close()
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/widget/truenas-scale?url="+mock.URL+"&api_key=test-key", nil)
+	recorder := httptest.NewRecorder()
+	internal.HandleTrueNASSCALEWidget(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	sys, ok := result["system"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected system section, got %v", result["system"])
+	}
+	if sys["hostname"] != "truenas" {
+		t.Errorf("Expected hostname 'truenas', got %v", sys["hostname"])
+	}
+	if sys["cpu_cores"].(float64) != 12 {
+		t.Errorf("Expected 12 cores, got %v", sys["cpu_cores"])
+	}
+
+	pools, ok := result["pools"].([]interface{})
+	if !ok || len(pools) != 1 {
+		t.Fatalf("Expected 1 pool, got %v", result["pools"])
+	}
+	pool := pools[0].(map[string]interface{})
+	if pool["name"] != "tank" {
+		t.Errorf("Expected pool 'tank', got %v", pool["name"])
+	}
+	if pct := pool["used_percent"].(float64); pct < 39 || pct > 41 {
+		t.Errorf("Expected ~40%% used, got %v", pct)
+	}
+
+	disks, ok := result["disks"].([]interface{})
+	if !ok || len(disks) != 1 {
+		t.Fatalf("Expected 1 disk, got %v", result["disks"])
+	}
+	disk := disks[0].(map[string]interface{})
+	if disk["name"] != "sda" {
+		t.Errorf("Expected disk 'sda', got %v", disk["name"])
+	}
+	if int(disk["temperature"].(float64)) != 38 {
+		t.Errorf("Expected temperature 38, got %v", disk["temperature"])
+	}
+}
+
+func TestHandleTrueNASSCALEWidget_PartialFailure(t *testing.T) {
+	var counters truenasMockCounters
+	mock := newMockTrueNASServer(t, &counters, "disks")
+	defer mock.Close()
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/widget/truenas-scale?url="+mock.URL+"&api_key=test-key", nil)
+	recorder := httptest.NewRecorder()
+	internal.HandleTrueNASSCALEWidget(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("Expected 200 even on partial failure, got %d", recorder.Code)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if _, ok := result["system"]; !ok {
+		t.Error("Expected system section to succeed")
+	}
+	if _, ok := result["pools"]; !ok {
+		t.Error("Expected pools section to succeed")
+	}
+	if _, ok := result["disks"]; ok {
+		t.Error("Expected no disks section on failure")
+	}
+	if _, ok := result["disks_error"]; !ok {
+		t.Error("Expected disks_error field on failure")
+	}
+}
+
+func TestHandleTrueNASSCALEWidget_Toggles(t *testing.T) {
+	var counters truenasMockCounters
+	mock := newMockTrueNASServer(t, &counters, "")
+	defer mock.Close()
+
+	// Only pools enabled — the other endpoints must not be called.
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/widget/truenas-scale?url="+mock.URL+"&api_key=test-key&show_system=false&show_disks=false", nil)
+	recorder := httptest.NewRecorder()
+	internal.HandleTrueNASSCALEWidget(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", recorder.Code)
+	}
+
+	var result map[string]interface{}
+	json.Unmarshal(recorder.Body.Bytes(), &result)
+
+	if _, ok := result["system"]; ok {
+		t.Error("Expected system section omitted when show_system=false")
+	}
+	if _, ok := result["disks"]; ok {
+		t.Error("Expected disks section omitted when show_disks=false")
+	}
+	if _, ok := result["pools"]; !ok {
+		t.Error("Expected pools section present")
+	}
+
+	if atomic.LoadInt32(&counters.system) != 0 {
+		t.Errorf("Expected 0 calls to system endpoint, got %d", counters.system)
+	}
+	if atomic.LoadInt32(&counters.disks) != 0 {
+		t.Errorf("Expected 0 calls to disks endpoint, got %d", counters.disks)
+	}
+	if atomic.LoadInt32(&counters.pools) != 1 {
+		t.Errorf("Expected 1 call to pools endpoint, got %d", counters.pools)
+	}
+}
+
+func TestHandleTrueNASSCALEWidget_InvalidURL(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/widget/truenas-scale?url=http://127.0.0.1:1&api_key=test-key", nil)
+	recorder := httptest.NewRecorder()
+	internal.HandleTrueNASSCALEWidget(recorder, req)
+
+	// Unreachable upstream still returns 200 with *_error fields — the widget
+	// degrades per-section rather than failing whole.
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("Expected 200 (with error fields), got %d", recorder.Code)
+	}
+	var result map[string]interface{}
+	json.Unmarshal(recorder.Body.Bytes(), &result)
+	for _, key := range []string{"system_error", "pools_error", "disks_error"} {
+		if _, ok := result[key]; !ok {
+			t.Errorf("Expected %s in response when upstream is unreachable", key)
+		}
 	}
 }

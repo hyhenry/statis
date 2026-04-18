@@ -444,3 +444,122 @@
     color: var(--text-muted-light);
     font-size: 1.2rem;
 }
+
+/* TrueNAS SCALE Widget */
+.widget[data-type="truenas-scale"] .widget-header {
+    height: var(--card-content-height);
+}
+
+.truenas-section {
+    margin-top: 1rem;
+}
+
+.truenas-section:first-child {
+    margin-top: 0;
+}
+
+.truenas-section-title {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted-light);
+}
+
+.truenas-kv {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 0.8rem;
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.truenas-kv dt {
+    color: var(--text-muted-light);
+}
+
+.truenas-kv dd {
+    margin: 0;
+    color: var(--text-color);
+    word-break: break-word;
+}
+
+.truenas-pool-row {
+    padding: 0.6rem 0;
+    border-bottom: var(--border-subtle);
+}
+
+.truenas-pool-row:last-child {
+    border-bottom: none;
+}
+
+.truenas-pool-head {
+    display: flex;
+    align-items: center;
+    font-size: 1.3rem;
+    margin-bottom: 0.4rem;
+}
+
+.truenas-pool-name {
+    flex-grow: 1;
+    font-weight: 600;
+}
+
+.truenas-pool-status {
+    font-size: 1.1rem;
+    color: var(--text-muted-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.truenas-pool-meta {
+    margin-top: 0.4rem;
+    font-size: 1.1rem;
+    color: var(--text-muted-light);
+    font-variant-numeric: tabular-nums;
+}
+
+.truenas-disk-list {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.truenas-disk-row {
+    display: grid;
+    grid-template-columns: minmax(60px, auto) 1fr max-content max-content;
+    gap: 0.8rem;
+    align-items: center;
+    padding: 0.45rem 0;
+    border-bottom: var(--border-subtle);
+    font-size: 1.2rem;
+}
+
+.truenas-disk-row:last-child {
+    border-bottom: none;
+}
+
+.truenas-disk-name {
+    font-variant-numeric: tabular-nums;
+}
+
+.truenas-disk-model {
+    color: var(--text-muted-light);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.truenas-disk-size,
+.truenas-disk-temp {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted-light);
+}
+
+.truenas-temp-warn {
+    color: #f39c12;
+}
+
+.truenas-temp-danger {
+    color: #e74c3c;
+    font-weight: 600;
+}

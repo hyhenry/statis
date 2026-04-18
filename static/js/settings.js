@@ -197,6 +197,7 @@ function renderWidgetsEditor() {
                         <option value="iframe" ${widget.type === 'iframe' ? 'selected' : ''}>iFrame</option>
                         <option value="header" ${widget.type === 'header' ? 'selected' : ''}>Header</option>
                         <option value="system-stats" ${widget.type === 'system-stats' ? 'selected' : ''}>System Stats</option>
+                        <option value="truenas-scale" ${widget.type === 'truenas-scale' ? 'selected' : ''}>TrueNAS SCALE</option>
                     </select>
                 </div>
                 <div class="eight columns">
@@ -304,6 +305,17 @@ const widgetConfigTemplates = {
     'system-stats': {
         hasConfig: false,
         defaults: {}
+    },
+    'truenas-scale': {
+        hasConfig: true,
+        defaults: {
+            url: 'https://truenas.local',
+            api_key: '',
+            show_system: 'true',
+            show_pools: 'true',
+            show_disks: 'true'
+        },
+        placeholder: 'url: https://truenas.local\napi_key: 1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nshow_system: true\nshow_pools: true\nshow_disks: true'
     }
 };
 

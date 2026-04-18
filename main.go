@@ -75,6 +75,7 @@ func main() {
 	mux.HandleFunc("/api/widget/uptime-kuma", internal.HandleUptimeKumaProxy)
 	mux.HandleFunc("/api/widget/system-stats", internal.HandleSystemStats)
 	mux.HandleFunc("/api/widget/rss", internal.HandleRSSWidget)
+	mux.HandleFunc("/api/widget/truenas-scale", internal.HandleTrueNASSCALEWidget)
 	mux.HandleFunc("/api/assets/clean-unused", internal.HandleCleanUnusedAssets)
 	mux.HandleFunc("/api/icons/search", internal.HandleIconSearch)
 	mux.HandleFunc("/api/icons/download", internal.HandleIconDownload)

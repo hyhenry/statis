@@ -48,6 +48,9 @@ function initWidget(widgetEl) {
         case 'header':
             initHeaderWidget(widgetEl, config);
             break;
+        case 'truenas-scale':
+            initTrueNASWidget(widgetEl, config);
+            break;
         default:
             console.warn('Unknown widget type:', type);
     }
@@ -478,3 +481,182 @@ function truncateText(text, maxLength) {
 }
 
 // escapeHtml is provided by utils.js
+
+// TrueNAS SCALE Widget
+function initTrueNASWidget(widgetEl, config) {
+    const contentEl = widgetEl.querySelector('.widget-content');
+
+    if (!config.url || !config.api_key) {
+        contentEl.innerHTML = renderWidgetError('Widget not configured. Set url and api_key in config.');
+        return;
+    }
+
+    ensureCollapsibleHeader(widgetEl, config);
+
+    const params = new URLSearchParams({ url: config.url, api_key: config.api_key });
+    if (config.show_system !== undefined) params.set('show_system', String(config.show_system));
+    if (config.show_pools !== undefined) params.set('show_pools', String(config.show_pools));
+    if (config.show_disks !== undefined) params.set('show_disks', String(config.show_disks));
+    const endpoint = `/api/widget/truenas-scale?${params.toString()}`;
+
+    async function refresh() {
+        try {
+            const response = await fetch(endpoint);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            renderTrueNASWidget(widgetEl, contentEl, data);
+        } catch (err) {
+            contentEl.innerHTML = renderWidgetError('Unable to connect to TrueNAS', config.url);
+        }
+    }
+
+    refresh();
+    setInterval(refresh, 60000);
+}
+
+function ensureCollapsibleHeader(widgetEl, config) {
+    const titleEl = widgetEl.querySelector('.widget-title');
+    if (!titleEl || titleEl.parentElement.classList.contains('widget-header')) return;
+
+    const header = document.createElement('div');
+    header.className = 'widget-header';
+    titleEl.parentElement.insertBefore(header, titleEl);
+    header.appendChild(titleEl);
+
+    const overallStatus = document.createElement('div');
+    overallStatus.className = 'overall-status';
+    header.appendChild(overallStatus);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'widget-toggle';
+    toggleBtn.innerHTML = '▼';
+    toggleBtn.setAttribute('aria-label', 'Toggle widget');
+    header.appendChild(toggleBtn);
+
+    const isCollapsed = config.collapsed === 'true' || config.collapsed === true;
+    widgetEl.dataset.collapsed = isCollapsed ? 'true' : 'false';
+    if (isCollapsed) {
+        widgetEl.classList.add('collapsed');
+        toggleBtn.classList.add('collapsed');
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        const collapsed = widgetEl.dataset.collapsed === 'true';
+        widgetEl.dataset.collapsed = !collapsed ? 'true' : 'false';
+        widgetEl.classList.toggle('collapsed');
+        toggleBtn.classList.toggle('collapsed');
+    });
+}
+
+function renderTrueNASWidget(widgetEl, contentEl, data) {
+    const parts = [];
+    let overall = 'up';
+
+    if (data.system) {
+        parts.push(renderTrueNASSystem(data.system));
+    } else if (data.system_error) {
+        parts.push(renderTrueNASSectionError('System', data.system_error));
+    }
+
+    if (data.pools) {
+        const { html, status } = renderTrueNASPools(data.pools);
+        parts.push(html);
+        if (status === 'down') overall = 'down';
+    } else if (data.pools_error) {
+        parts.push(renderTrueNASSectionError('Pools', data.pools_error));
+        overall = 'down';
+    }
+
+    if (data.disks) {
+        parts.push(renderTrueNASDisks(data.disks));
+    } else if (data.disks_error) {
+        parts.push(renderTrueNASSectionError('Disks', data.disks_error));
+    }
+
+    const overallStatusEl = widgetEl.querySelector('.overall-status');
+    if (overallStatusEl) {
+        const hostname = data.system?.hostname || '';
+        overallStatusEl.innerHTML = `
+            <div class="overall-status-indicator status-${overall}"></div>
+            <div class="overall-status-text">${escapeHtml(hostname)}</div>
+        `;
+    }
+
+    contentEl.innerHTML = parts.length ? parts.join('') : renderWidgetInfo('No sections enabled.');
+}
+
+function renderTrueNASSystem(sys) {
+    return `
+        <div class="truenas-section">
+            <h5 class="truenas-section-title">System</h5>
+            <dl class="truenas-kv">
+                <dt>Hostname</dt><dd>${escapeHtml(sys.hostname || '-')}</dd>
+                <dt>Version</dt><dd>${escapeHtml(sys.version || '-')}</dd>
+                <dt>Uptime</dt><dd>${escapeHtml(formatUptime(sys.uptime_seconds))}</dd>
+                <dt>CPU</dt><dd>${escapeHtml(sys.cpu_model || '-')}${sys.cpu_cores ? ` (${sys.cpu_cores} cores)` : ''}</dd>
+                <dt>Memory</dt><dd>${escapeHtml(formatBytes(sys.memory_bytes))}</dd>
+            </dl>
+        </div>
+    `;
+}
+
+function renderTrueNASPools(pools) {
+    let status = 'up';
+    const rows = pools.map(p => {
+        const healthy = p.healthy && (p.status === '' || /online/i.test(p.status));
+        if (!healthy) status = 'down';
+        const pct = Math.max(0, Math.min(100, p.used_percent || 0));
+        return `
+            <div class="truenas-pool-row">
+                <div class="truenas-pool-head">
+                    <span class="status-indicator ${healthy ? 'status-up' : 'status-down'}"></span>
+                    <span class="truenas-pool-name">${escapeHtml(p.name)}</span>
+                    <span class="truenas-pool-status">${escapeHtml(p.status || (healthy ? 'ONLINE' : 'UNKNOWN'))}</span>
+                </div>
+                <div class="stat-bar"><div class="stat-fill-ram" style="width: ${pct.toFixed(1)}%"></div></div>
+                <div class="truenas-pool-meta">${escapeHtml(formatBytes(p.allocated_bytes))} / ${escapeHtml(formatBytes(p.size_bytes))} (${pct.toFixed(1)}%)</div>
+            </div>
+        `;
+    }).join('');
+    const html = `
+        <div class="truenas-section">
+            <h5 class="truenas-section-title">Pools</h5>
+            ${pools.length ? rows : renderWidgetInfo('No pools found.')}
+        </div>
+    `;
+    return { html, status };
+}
+
+function renderTrueNASDisks(disks) {
+    const rows = disks.map(d => {
+        const tempClass = d.temperature >= 55 ? 'truenas-temp-danger'
+            : d.temperature >= 45 ? 'truenas-temp-warn'
+            : '';
+        const tempStr = d.temperature ? `${d.temperature}°C` : '-';
+        return `
+            <div class="truenas-disk-row">
+                <span class="truenas-disk-name">${escapeHtml(d.name)}</span>
+                <span class="truenas-disk-model">${escapeHtml(d.model || '')}</span>
+                <span class="truenas-disk-size">${escapeHtml(formatBytes(d.size_bytes))}</span>
+                <span class="truenas-disk-temp ${tempClass}">${escapeHtml(tempStr)}</span>
+            </div>
+        `;
+    }).join('');
+    return `
+        <div class="truenas-section">
+            <h5 class="truenas-section-title">Disks (${disks.length})</h5>
+            <div class="truenas-disk-list">
+                ${disks.length ? rows : renderWidgetInfo('No disks found.')}
+            </div>
+        </div>
+    `;
+}
+
+function renderTrueNASSectionError(section, message) {
+    return `
+        <div class="truenas-section">
+            <h5 class="truenas-section-title">${escapeHtml(section)}</h5>
+            ${renderWidgetError(`Failed to load ${section.toLowerCase()}`, message)}
+        </div>
+    `;
+}
