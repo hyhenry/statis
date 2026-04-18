@@ -497,6 +497,7 @@ function initTrueNASWidget(widgetEl, config) {
     if (config.show_system !== undefined) params.set('show_system', String(config.show_system));
     if (config.show_pools !== undefined) params.set('show_pools', String(config.show_pools));
     if (config.show_disks !== undefined) params.set('show_disks', String(config.show_disks));
+    if (config.show_backups !== undefined) params.set('show_backups', String(config.show_backups));
     const endpoint = `/api/widget/truenas-scale?${params.toString()}`;
 
     async function refresh() {
@@ -571,6 +572,14 @@ function renderTrueNASWidget(widgetEl, contentEl, data) {
         parts.push(renderTrueNASDisks(data.disks));
     } else if (data.disks_error) {
         parts.push(renderTrueNASSectionError('Disks', data.disks_error));
+    }
+
+    if (data.backups) {
+        const { html, status } = renderTrueNASBackups(data.backups);
+        parts.push(html);
+        if (status === 'down') overall = 'down';
+    } else if (data.backups_error) {
+        parts.push(renderTrueNASSectionError('Backups', data.backups_error));
     }
 
     const overallStatusEl = widgetEl.querySelector('.overall-status');
@@ -695,6 +704,59 @@ function renderTrueNASDisks(disks) {
             </div>
         </div>
     `;
+}
+
+function renderTrueNASBackups(backups) {
+    let status = 'up';
+    const rows = backups.map(b => {
+        const state = (b.state || 'NEVER').toUpperCase();
+        let dot = 'status-pending';
+        let stateLabel = state;
+        if (state === 'SUCCESS') dot = 'status-up';
+        else if (state === 'FAILED') { dot = 'status-down'; status = 'down'; }
+        else if (state === 'RUNNING') dot = 'status-pending';
+        else if (state === 'NEVER') { dot = 'status-pending'; stateLabel = 'never run'; }
+
+        const kindBadge = b.kind === 'cloudsync' ? 'Cloud' : 'Rsync';
+        const dir = b.direction ? ` · ${escapeHtml(b.direction.toLowerCase())}` : '';
+        const disabled = b.enabled ? '' : ' <span class="truenas-backup-disabled">(disabled)</span>';
+
+        let subline = '';
+        if (state === 'RUNNING') {
+            subline = `running — ${(b.progress_percent || 0).toFixed(0)}%`;
+        } else if (b.last_run_unix) {
+            const rel = formatRelativeTime(new Date(b.last_run_unix * 1000));
+            subline = `${stateLabel.toLowerCase()} · ${escapeHtml(rel)}`;
+        } else {
+            subline = stateLabel.toLowerCase();
+        }
+
+        const errLine = (state === 'FAILED' && b.error)
+            ? `<div class="truenas-backup-error" title="${escapeHtml(b.error)}">${escapeHtml(truncateText(b.error, 120))}</div>`
+            : '';
+
+        return `
+            <div class="truenas-backup-row">
+                <span class="status-indicator ${dot}"></span>
+                <div class="truenas-backup-main">
+                    <div class="truenas-backup-title">
+                        <span class="truenas-backup-kind">${kindBadge}</span>
+                        <span class="truenas-backup-name">${escapeHtml(b.description || '(unnamed)')}${disabled}</span>
+                    </div>
+                    <div class="truenas-backup-sub">${subline}${dir}</div>
+                    ${errLine}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const html = `
+        <div class="truenas-section">
+            <h5 class="truenas-section-title">Backups (${backups.length})</h5>
+            ${backups.length ? rows : renderWidgetInfo('No backup tasks configured.')}
+        </div>
+    `;
+    return { html, status };
 }
 
 function renderTrueNASSectionError(section, message) {

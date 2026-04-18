@@ -576,3 +576,68 @@
     color: #e74c3c;
     font-weight: 600;
 }
+
+.truenas-backup-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+    border-bottom: var(--border-subtle);
+    font-size: 1.2rem;
+}
+
+.truenas-backup-row:last-child {
+    border-bottom: none;
+}
+
+.truenas-backup-row .status-indicator {
+    margin-top: 0.55rem;
+}
+
+.truenas-backup-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.truenas-backup-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.truenas-backup-kind {
+    font-size: 0.95rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.truenas-backup-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.truenas-backup-disabled {
+    color: var(--text-muted-light);
+    font-style: italic;
+}
+
+.truenas-backup-sub {
+    margin-top: 0.2rem;
+    font-size: 1.1rem;
+    color: var(--text-muted-light);
+}
+
+.truenas-backup-error {
+    margin-top: 0.25rem;
+    font-size: 1.05rem;
+    color: #e74c3c;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

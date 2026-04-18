@@ -508,9 +508,11 @@ func TestHandleTrueNASSCALEWidget_MissingParams(t *testing.T) {
 }
 
 type truenasMockCounters struct {
-	system int32
-	pools  int32
-	disks  int32
+	system    int32
+	pools     int32
+	disks     int32
+	cloudsync int32
+	rsync     int32
 }
 
 func newMockTrueNASServer(t *testing.T, counters *truenasMockCounters, failSection string) *httptest.Server {
@@ -596,6 +598,52 @@ func newMockTrueNASServer(t *testing.T, counters *truenasMockCounters, failSecti
 					"size":        4000000000000.0,
 					"type":        "HDD",
 					"temperature": 38.0,
+				},
+			})
+		case "/api/v2.0/cloudsync":
+			atomic.AddInt32(&counters.cloudsync, 1)
+			if failSection == "cloudsync" {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{
+					"id":          1.0,
+					"description": "Backblaze offsite",
+					"direction":   "PUSH",
+					"enabled":     true,
+					"job": map[string]interface{}{
+						"state":         "SUCCESS",
+						"time_finished": map[string]interface{}{"$date": 1700000000000.0},
+						"progress":      map[string]interface{}{"percent": 100.0},
+					},
+				},
+				{
+					"id":          2.0,
+					"description": "Failing Dropbox task",
+					"direction":   "PULL",
+					"enabled":     true,
+					"job": map[string]interface{}{
+						"state":         "FAILED",
+						"time_finished": map[string]interface{}{"$date": 1699000000000.0},
+						"error":         "access denied",
+					},
+				},
+			})
+		case "/api/v2.0/rsynctask":
+			atomic.AddInt32(&counters.rsync, 1)
+			if failSection == "rsync" {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{
+					"id":         10.0,
+					"desc":       "Nightly mirror to backup box",
+					"direction":  "PUSH",
+					"enabled":    false,
+					"path":       "/mnt/tank/data",
+					"remotepath": "/mnt/backup/data",
 				},
 			})
 		default:
@@ -714,7 +762,7 @@ func TestHandleTrueNASSCALEWidget_Toggles(t *testing.T) {
 
 	// Only pools enabled — the other endpoints must not be called.
 	req := httptest.NewRequest(http.MethodGet,
-		"/api/widget/truenas-scale?url="+mock.URL+"&api_key=test-key&show_system=false&show_disks=false", nil)
+		"/api/widget/truenas-scale?url="+mock.URL+"&api_key=test-key&show_system=false&show_disks=false&show_backups=false", nil)
 	recorder := httptest.NewRecorder()
 	internal.HandleTrueNASSCALEWidget(recorder, req)
 
@@ -744,6 +792,102 @@ func TestHandleTrueNASSCALEWidget_Toggles(t *testing.T) {
 	if atomic.LoadInt32(&counters.pools) != 1 {
 		t.Errorf("Expected 1 call to pools endpoint, got %d", counters.pools)
 	}
+	if atomic.LoadInt32(&counters.cloudsync) != 0 {
+		t.Errorf("Expected 0 calls to cloudsync endpoint, got %d", counters.cloudsync)
+	}
+	if atomic.LoadInt32(&counters.rsync) != 0 {
+		t.Errorf("Expected 0 calls to rsync endpoint, got %d", counters.rsync)
+	}
+}
+
+func TestHandleTrueNASSCALEWidget_Backups(t *testing.T) {
+	var counters truenasMockCounters
+	mock := newMockTrueNASServer(t, &counters, "")
+	defer mock.Close()
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/widget/truenas-scale?url="+mock.URL+"&api_key=test-key&show_system=false&show_pools=false&show_disks=false", nil)
+	recorder := httptest.NewRecorder()
+	internal.HandleTrueNASSCALEWidget(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d", recorder.Code)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	backups, ok := result["backups"].([]interface{})
+	if !ok {
+		t.Fatalf("Expected backups array, got %v", result["backups"])
+	}
+	if len(backups) != 3 {
+		t.Fatalf("Expected 3 backups (2 cloudsync + 1 rsync), got %d", len(backups))
+	}
+
+	// Cloud sync success task
+	success := backups[0].(map[string]interface{})
+	if success["kind"] != "cloudsync" {
+		t.Errorf("Expected kind=cloudsync, got %v", success["kind"])
+	}
+	if success["state"] != "SUCCESS" {
+		t.Errorf("Expected state=SUCCESS, got %v", success["state"])
+	}
+	if success["last_run_unix"].(float64) != 1700000000 {
+		t.Errorf("Expected last_run_unix=1700000000, got %v", success["last_run_unix"])
+	}
+
+	// Failed cloud sync surfaces error
+	failed := backups[1].(map[string]interface{})
+	if failed["state"] != "FAILED" {
+		t.Errorf("Expected state=FAILED, got %v", failed["state"])
+	}
+	if failed["error"] != "access denied" {
+		t.Errorf("Expected error='access denied', got %v", failed["error"])
+	}
+
+	// Rsync task is disabled + never run — falls back to NEVER state
+	rs := backups[2].(map[string]interface{})
+	if rs["kind"] != "rsync" {
+		t.Errorf("Expected kind=rsync, got %v", rs["kind"])
+	}
+	if rs["state"] != "NEVER" {
+		t.Errorf("Expected state=NEVER for task with no job, got %v", rs["state"])
+	}
+	if rs["enabled"] != false {
+		t.Errorf("Expected enabled=false, got %v", rs["enabled"])
+	}
+	if rs["description"] != "Nightly mirror to backup box" {
+		t.Errorf("Expected rsync description from 'desc' field, got %v", rs["description"])
+	}
+}
+
+func TestHandleTrueNASSCALEWidget_BackupsPartialFailure(t *testing.T) {
+	// If only cloudsync fails, rsync results should still come through.
+	var counters truenasMockCounters
+	mock := newMockTrueNASServer(t, &counters, "cloudsync")
+	defer mock.Close()
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/api/widget/truenas-scale?url="+mock.URL+"&api_key=test-key&show_system=false&show_pools=false&show_disks=false", nil)
+	recorder := httptest.NewRecorder()
+	internal.HandleTrueNASSCALEWidget(recorder, req)
+
+	var result map[string]interface{}
+	json.Unmarshal(recorder.Body.Bytes(), &result)
+
+	backups, ok := result["backups"].([]interface{})
+	if !ok {
+		t.Fatalf("Expected backups array even when cloudsync fails, got %v", result["backups"])
+	}
+	if len(backups) != 1 {
+		t.Errorf("Expected 1 rsync backup when cloudsync fails, got %d", len(backups))
+	}
+	if _, ok := result["backups_error"]; ok {
+		t.Error("Expected no backups_error when at least one source succeeds")
+	}
 }
 
 func TestHandleTrueNASSCALEWidget_InvalidURL(t *testing.T) {
@@ -759,7 +903,7 @@ func TestHandleTrueNASSCALEWidget_InvalidURL(t *testing.T) {
 	}
 	var result map[string]interface{}
 	json.Unmarshal(recorder.Body.Bytes(), &result)
-	for _, key := range []string{"system_error", "pools_error", "disks_error"} {
+	for _, key := range []string{"system_error", "pools_error", "disks_error", "backups_error"} {
 		if _, ok := result[key]; !ok {
 			t.Errorf("Expected %s in response when upstream is unreachable", key)
 		}

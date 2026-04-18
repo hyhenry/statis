@@ -479,6 +479,21 @@ type truenasDisk struct {
 	Temperature int    `json:"temperature,omitempty"`
 }
 
+// truenasBackup is a unified view of a cloud sync or rsync task with its
+// most recent job run. TrueNAS exposes these as separate endpoints but the
+// UI treats them the same — a scheduled transfer with a last-run state.
+type truenasBackup struct {
+	ID             int     `json:"id"`
+	Kind           string  `json:"kind"` // "cloudsync" | "rsync"
+	Description    string  `json:"description"`
+	Direction      string  `json:"direction,omitempty"` // PUSH / PULL
+	Enabled        bool    `json:"enabled"`
+	State          string  `json:"state"` // SUCCESS / FAILED / RUNNING / WAITING / NEVER
+	LastRunUnix    int64   `json:"last_run_unix,omitempty"`
+	ProgressPct    float64 `json:"progress_percent,omitempty"`
+	Error          string  `json:"error,omitempty"`
+}
+
 // truenasClient is shared for the handler; self-signed certs are common on
 // homelab TrueNAS boxes, so verification is off.
 var truenasClient = &http.Client{
@@ -522,6 +537,7 @@ func HandleTrueNASSCALEWidget(w http.ResponseWriter, r *http.Request) {
 	showSystem := r.URL.Query().Get("show_system") != "false"
 	showPools := r.URL.Query().Get("show_pools") != "false"
 	showDisks := r.URL.Query().Get("show_disks") != "false"
+	showBackups := r.URL.Query().Get("show_backups") != "false"
 
 	response := map[string]interface{}{}
 	var mu sync.Mutex
@@ -569,6 +585,36 @@ func HandleTrueNASSCALEWidget(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			setField("disks", parseTrueNASDisks(raw))
+		}()
+	}
+
+	if showBackups {
+		// Fetch both cloud sync and rsync task lists in parallel. Either may
+		// fail independently (e.g., if the user doesn't have that feature
+		// configured) — we merge whatever came back rather than giving up.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var cloudsync, rsync []map[string]interface{}
+			var cloudErr, rsyncErr error
+			var innerWG sync.WaitGroup
+			innerWG.Add(2)
+			go func() {
+				defer innerWG.Done()
+				cloudErr = fetchTrueNASJSON(baseURL+"/api/v2.0/cloudsync", apiKey, &cloudsync)
+			}()
+			go func() {
+				defer innerWG.Done()
+				rsyncErr = fetchTrueNASJSON(baseURL+"/api/v2.0/rsynctask", apiKey, &rsync)
+			}()
+			innerWG.Wait()
+
+			if cloudErr != nil && rsyncErr != nil {
+				setField("backups_error", fmt.Sprintf("cloudsync: %v; rsync: %v", cloudErr, rsyncErr))
+				return
+			}
+			backups := parseTrueNASBackups(cloudsync, rsync)
+			setField("backups", backups)
 		}()
 	}
 
@@ -714,6 +760,88 @@ func parseTrueNASDisks(raw []map[string]interface{}) []truenasDisk {
 		})
 	}
 	return disks
+}
+
+func parseTrueNASBackups(cloudsync, rsync []map[string]interface{}) []truenasBackup {
+	backups := make([]truenasBackup, 0, len(cloudsync)+len(rsync))
+	for _, task := range cloudsync {
+		desc := getString(task, "description")
+		if desc == "" {
+			// Cloud sync tasks fall back to "<path> → <remote>".
+			desc = strings.TrimSpace(getString(task, "path"))
+		}
+		backups = append(backups, parseBackupTask(task, "cloudsync", desc))
+	}
+	for _, task := range rsync {
+		// rsync tasks use "desc" field (not "description") in some versions;
+		// also fall back to path.
+		desc := getString(task, "description")
+		if desc == "" {
+			desc = getString(task, "desc")
+		}
+		if desc == "" {
+			path := getString(task, "path")
+			remote := getString(task, "remotepath")
+			desc = strings.TrimSpace(path + " → " + remote)
+			if desc == "→" {
+				desc = "rsync task"
+			}
+		}
+		backups = append(backups, parseBackupTask(task, "rsync", desc))
+	}
+	return backups
+}
+
+func parseBackupTask(task map[string]interface{}, kind, desc string) truenasBackup {
+	b := truenasBackup{
+		ID:          int(getFloat(task, "id")),
+		Kind:        kind,
+		Description: desc,
+		Direction:   getString(task, "direction"),
+		Enabled:     getBool(task, "enabled"),
+		State:       "NEVER",
+	}
+
+	job, ok := task["job"].(map[string]interface{})
+	if !ok || job == nil {
+		return b
+	}
+
+	b.State = strings.ToUpper(getString(job, "state"))
+	if b.State == "" {
+		b.State = "NEVER"
+	}
+	b.Error = getString(job, "error")
+
+	if prog, ok := job["progress"].(map[string]interface{}); ok {
+		b.ProgressPct = getFloat(prog, "percent")
+	}
+
+	// TrueNAS hands time_finished / time_started in the "$date": epoch-ms
+	// wrapper. We prefer finished for completed jobs, fall back to started
+	// for running ones so the UI can still show "started X ago".
+	if finished := unwrapDateField(job["time_finished"]); finished != 0 {
+		b.LastRunUnix = finished
+	} else if started := unwrapDateField(job["time_started"]); started != 0 {
+		b.LastRunUnix = started
+	}
+	return b
+}
+
+func unwrapDateField(v interface{}) int64 {
+	switch x := v.(type) {
+	case map[string]interface{}:
+		if ms, ok := x["$date"].(float64); ok {
+			return int64(ms / 1000)
+		}
+	case string:
+		if t, err := time.Parse(time.RFC3339, x); err == nil {
+			return t.Unix()
+		}
+	case float64:
+		return int64(x / 1000)
+	}
+	return 0
 }
 
 // Small typed accessors for the loosely-typed TrueNAS JSON payloads.

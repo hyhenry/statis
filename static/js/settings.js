@@ -313,9 +313,10 @@ const widgetConfigTemplates = {
             api_key: '',
             show_system: 'true',
             show_pools: 'true',
-            show_disks: 'true'
+            show_disks: 'true',
+            show_backups: 'true'
         },
-        placeholder: 'url: https://truenas.local\napi_key: 1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nshow_system: true\nshow_pools: true\nshow_disks: true'
+        placeholder: 'url: https://truenas.local\napi_key: 1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nshow_system: true\nshow_pools: true\nshow_disks: true\nshow_backups: true'
     }
 };
 
