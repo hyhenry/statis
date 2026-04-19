@@ -126,7 +126,9 @@ function yamlToConfig(yamlStr) {
             background_color: parsed.theme?.background_color || '',
             card_color: parsed.theme?.card_color || '',
             text_color: parsed.theme?.text_color || '',
-            font_family: parsed.theme?.font_family || ''
+            font_family: parsed.theme?.font_family || '',
+            favicon: parsed.theme?.favicon || '',
+            favicon_name: parsed.theme?.favicon_name || ''
         },
         layout: {
             widget_columns: parsed.layout?.widget_columns || 4,
