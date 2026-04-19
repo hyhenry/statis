@@ -10,7 +10,7 @@ A lightweight, self-hosted dashboard for your homelab services. Built with Go an
 - ⚙️ **Configurable** - YAML config file or web UI
 - 🎨 **Themeable** - Customize colors, fonts, and favicon via config
 - 📱 **Responsive** - Works on mobile and desktop
-- 🔌 **Widgets** - Uptime Kuma, RSS, System Stats, Clock, iFrame, Header
+- 🔌 **Widgets** - Uptime Kuma, RSS, System Stats, Clock, iFrame, Header, TrueNAS SCALE
 - 🖼️ **Dashboard Icons** - Browse and search 2800+ icons from homarr-labs/dashboard-icons
 - 🐳 **Docker Ready** - Easy deployment
 
@@ -189,6 +189,24 @@ Visual separator between widget groups:
     height: "300px"
 ```
 
+#### TrueNAS SCALE
+Monitors a TrueNAS SCALE instance via its v2.0 REST API. Each section can
+be toggled independently, and per-section failures degrade gracefully so
+the rest of the widget still renders.
+```yaml
+- type: "truenas-scale"
+  title: "TrueNAS"
+  config:
+    url: "https://truenas.local"
+    api_key: "1-xxxxxxxxxxxxxxxx"    # From TrueNAS UI → Settings → API Keys
+    show_system: "true"              # Hostname, uptime, CPU, memory
+    show_pools: "true"               # Pool status + capacity bars (ZFS/scan errors surfaced)
+    show_disks: "true"               # Per-disk health + temperature
+    show_backups: "true"             # Cloud sync + rsync task status
+```
+Self-signed TLS certificates are accepted. The API key is proxied through
+the server — suitable for trusted networks only.
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -272,6 +290,7 @@ statis/
 | `/api/widget/uptime-kuma` | GET | Proxy to Uptime Kuma |
 | `/api/widget/system-stats` | GET | Local CPU/RAM usage (Linux only) |
 | `/api/widget/rss` | GET | Fetch and parse RSS/Atom feeds |
+| `/api/widget/truenas-scale` | GET | Proxy to TrueNAS SCALE v2.0 REST API |
 | `/api/icons/search` | GET | Search dashboard icons |
 | `/api/icons/download` | POST | Download icon from CDN |
 | `/api/icons/upload` | POST | Upload custom icon |
