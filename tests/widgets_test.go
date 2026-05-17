@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/gorilla/websocket"
 	"statis/internal"
 )
 
@@ -515,139 +516,182 @@ type truenasMockCounters struct {
 	rsync     int32
 }
 
+var wsUpgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+
 func newMockTrueNASServer(t *testing.T, counters *truenasMockCounters, failSection string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Every endpoint must require the Bearer token.
-		if r.Header.Get("Authorization") != "Bearer test-key" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		if r.URL.Path != "/api/current" {
+			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/api/v2.0/system/info":
-			atomic.AddInt32(&counters.system, 1)
-			if failSection == "system" {
-				http.Error(w, "boom", http.StatusInternalServerError)
-				return
-			}
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"hostname":       "truenas",
-				"version":        "TrueNAS-SCALE-24.04",
-				"uptime_seconds": 12345.0,
-				"physmem":        34359738368.0,
-				"model":          "Intel Xeon E-2236",
-				"cores":          12.0,
+		conn, err := wsUpgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Logf("WS upgrade error: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		sendResult := func(id int, result interface{}) {
+			data, _ := json.Marshal(map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      id,
+				"result":  result,
 			})
-		case "/api/v2.0/pool":
-			atomic.AddInt32(&counters.pools, 1)
-			if failSection == "pools" {
-				http.Error(w, "boom", http.StatusInternalServerError)
-				return
+			conn.WriteMessage(websocket.TextMessage, data)
+		}
+		sendError := func(id int, msg string) {
+			data, _ := json.Marshal(map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      id,
+				"error":   map[string]interface{}{"code": -32000, "message": msg},
+			})
+			conn.WriteMessage(websocket.TextMessage, data)
+		}
+
+		for {
+			_, raw, err := conn.ReadMessage()
+			if err != nil {
+				break
 			}
-			json.NewEncoder(w).Encode([]map[string]interface{}{
-				{
-					"name":          "tank",
-					"status":        "ONLINE",
-					"status_detail": "",
-					"healthy":       true,
-					"size":          1000000000000.0,
-					"allocated":     400000000000.0,
-					"free":          600000000000.0,
-					"scan": map[string]interface{}{
-						"function":   "SCRUB",
-						"state":      "FINISHED",
-						"errors":     0.0,
-						"percentage": 100.0,
-						"end_time":   map[string]interface{}{"$date": 1700000000000.0},
-					},
-					"topology": map[string]interface{}{
-						"data": []interface{}{
-							map[string]interface{}{
-								"type": "RAIDZ2",
-								"stats": map[string]interface{}{
-									"read_errors":     0.0,
-									"write_errors":    2.0,
-									"checksum_errors": 0.0,
-								},
-								"children": []interface{}{
+			var req struct {
+				ID     int    `json:"id"`
+				Method string `json:"method"`
+			}
+			if err := json.Unmarshal(raw, &req); err != nil {
+				break
+			}
+
+			switch req.Method {
+			case "auth.login_with_api_key":
+				sendResult(req.ID, true)
+
+			case "system.info":
+				atomic.AddInt32(&counters.system, 1)
+				if failSection == "system" {
+					sendError(req.ID, "boom")
+				} else {
+					sendResult(req.ID, map[string]interface{}{
+						"hostname":       "truenas",
+						"version":        "TrueNAS-SCALE-25.04",
+						"uptime_seconds": 12345.0,
+						"physmem":        34359738368.0,
+						"model":          "Intel Xeon E-2236",
+						"cores":          12.0,
+					})
+				}
+
+			case "pool.query":
+				atomic.AddInt32(&counters.pools, 1)
+				if failSection == "pools" {
+					sendError(req.ID, "boom")
+				} else {
+					sendResult(req.ID, []interface{}{
+						map[string]interface{}{
+							"name":          "tank",
+							"status":        "ONLINE",
+							"status_detail": "",
+							"healthy":       true,
+							"size":          1000000000000.0,
+							"allocated":     400000000000.0,
+							"free":          600000000000.0,
+							"scan": map[string]interface{}{
+								"function":   "SCRUB",
+								"state":      "FINISHED",
+								"errors":     0.0,
+								"percentage": 100.0,
+								"end_time":   map[string]interface{}{"$date": 1700000000000.0},
+							},
+							"topology": map[string]interface{}{
+								"data": []interface{}{
 									map[string]interface{}{
+										"type": "RAIDZ2",
 										"stats": map[string]interface{}{
-											"read_errors":     1.0,
-											"write_errors":    0.0,
+											"read_errors":     0.0,
+											"write_errors":    2.0,
 											"checksum_errors": 0.0,
+										},
+										"children": []interface{}{
+											map[string]interface{}{
+												"stats": map[string]interface{}{
+													"read_errors":     1.0,
+													"write_errors":    0.0,
+													"checksum_errors": 0.0,
+												},
+											},
 										},
 									},
 								},
 							},
 						},
-					},
-				},
-			})
-		case "/api/v2.0/disk":
-			atomic.AddInt32(&counters.disks, 1)
-			if failSection == "disks" {
-				http.Error(w, "boom", http.StatusInternalServerError)
-				return
+					})
+				}
+
+			case "disk.query":
+				atomic.AddInt32(&counters.disks, 1)
+				if failSection == "disks" {
+					sendError(req.ID, "boom")
+				} else {
+					sendResult(req.ID, []interface{}{
+						map[string]interface{}{
+							"name":        "sda",
+							"model":       "WDC WD40EFRX",
+							"serial":      "WD-ABC123",
+							"size":        4000000000000.0,
+							"type":        "HDD",
+							"temperature": 38.0,
+						},
+					})
+				}
+
+			case "cloudsync.query":
+				atomic.AddInt32(&counters.cloudsync, 1)
+				if failSection == "cloudsync" {
+					sendError(req.ID, "boom")
+				} else {
+					sendResult(req.ID, []interface{}{
+						map[string]interface{}{
+							"id":          1.0,
+							"description": "Backblaze offsite",
+							"direction":   "PUSH",
+							"enabled":     true,
+							"job": map[string]interface{}{
+								"state":         "SUCCESS",
+								"time_finished": map[string]interface{}{"$date": 1700000000000.0},
+								"progress":      map[string]interface{}{"percent": 100.0},
+							},
+						},
+						map[string]interface{}{
+							"id":          2.0,
+							"description": "Failing Dropbox task",
+							"direction":   "PULL",
+							"enabled":     true,
+							"job": map[string]interface{}{
+								"state":         "FAILED",
+								"time_finished": map[string]interface{}{"$date": 1699000000000.0},
+								"error":         "access denied",
+							},
+						},
+					})
+				}
+
+			case "rsynctask.query":
+				atomic.AddInt32(&counters.rsync, 1)
+				if failSection == "rsync" {
+					sendError(req.ID, "boom")
+				} else {
+					sendResult(req.ID, []interface{}{
+						map[string]interface{}{
+							"id":         10.0,
+							"desc":       "Nightly mirror to backup box",
+							"direction":  "PUSH",
+							"enabled":    false,
+							"path":       "/mnt/tank/data",
+							"remotepath": "/mnt/backup/data",
+						},
+					})
+				}
 			}
-			json.NewEncoder(w).Encode([]map[string]interface{}{
-				{
-					"name":        "sda",
-					"model":       "WDC WD40EFRX",
-					"serial":      "WD-ABC123",
-					"size":        4000000000000.0,
-					"type":        "HDD",
-					"temperature": 38.0,
-				},
-			})
-		case "/api/v2.0/cloudsync":
-			atomic.AddInt32(&counters.cloudsync, 1)
-			if failSection == "cloudsync" {
-				http.Error(w, "boom", http.StatusInternalServerError)
-				return
-			}
-			json.NewEncoder(w).Encode([]map[string]interface{}{
-				{
-					"id":          1.0,
-					"description": "Backblaze offsite",
-					"direction":   "PUSH",
-					"enabled":     true,
-					"job": map[string]interface{}{
-						"state":         "SUCCESS",
-						"time_finished": map[string]interface{}{"$date": 1700000000000.0},
-						"progress":      map[string]interface{}{"percent": 100.0},
-					},
-				},
-				{
-					"id":          2.0,
-					"description": "Failing Dropbox task",
-					"direction":   "PULL",
-					"enabled":     true,
-					"job": map[string]interface{}{
-						"state":         "FAILED",
-						"time_finished": map[string]interface{}{"$date": 1699000000000.0},
-						"error":         "access denied",
-					},
-				},
-			})
-		case "/api/v2.0/rsynctask":
-			atomic.AddInt32(&counters.rsync, 1)
-			if failSection == "rsync" {
-				http.Error(w, "boom", http.StatusInternalServerError)
-				return
-			}
-			json.NewEncoder(w).Encode([]map[string]interface{}{
-				{
-					"id":         10.0,
-					"desc":       "Nightly mirror to backup box",
-					"direction":  "PUSH",
-					"enabled":    false,
-					"path":       "/mnt/tank/data",
-					"remotepath": "/mnt/backup/data",
-				},
-			})
-		default:
-			http.NotFound(w, r)
 		}
 	}))
 }
@@ -896,16 +940,8 @@ func TestHandleTrueNASSCALEWidget_InvalidURL(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	internal.HandleTrueNASSCALEWidget(recorder, req)
 
-	// Unreachable upstream still returns 200 with *_error fields — the widget
-	// degrades per-section rather than failing whole.
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("Expected 200 (with error fields), got %d", recorder.Code)
-	}
-	var result map[string]interface{}
-	json.Unmarshal(recorder.Body.Bytes(), &result)
-	for _, key := range []string{"system_error", "pools_error", "disks_error", "backups_error"} {
-		if _, ok := result[key]; !ok {
-			t.Errorf("Expected %s in response when upstream is unreachable", key)
-		}
+	// A connection failure returns 502 — there is no partial data to degrade to.
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("Expected 502 when upstream is unreachable, got %d", recorder.Code)
 	}
 }

@@ -12,8 +12,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // Uptime Kuma proxy handler
@@ -494,38 +495,127 @@ type truenasBackup struct {
 	Error          string  `json:"error,omitempty"`
 }
 
-// truenasClient is shared for the handler; self-signed certs are common on
-// homelab TrueNAS boxes, so verification is off.
-var truenasClient = &http.Client{
-	Timeout: 10 * time.Second,
-	Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	},
+// WebSocket JSON-RPC 2.0 types for TrueNAS SCALE 25.04+ API.
+
+type wsRPCRequest struct {
+	JSONRPC string        `json:"jsonrpc"`
+	ID      int           `json:"id"`
+	Method  string        `json:"method"`
+	Params  []interface{} `json:"params"`
 }
 
-func fetchTrueNASJSON(url, apiKey string, target interface{}) error {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+type wsRPCResponse struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      int             `json:"id"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *wsRPCError     `json:"error,omitempty"`
+}
+
+type wsRPCError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+var truenasDialer = &websocket.Dialer{
+	TLSClientConfig:  &tls.Config{InsecureSkipVerify: true},
+	HandshakeTimeout: 10 * time.Second,
+}
+
+// truenasWSURL converts an http(s) base URL to the wss WebSocket API endpoint.
+func truenasWSURL(baseURL string) string {
+	switch {
+	case strings.HasPrefix(baseURL, "https://"):
+		return "wss://" + baseURL[len("https://"):] + "/api/current"
+	case strings.HasPrefix(baseURL, "http://"):
+		return "ws://" + baseURL[len("http://"):] + "/api/current"
+	default:
+		return "wss://" + baseURL + "/api/current"
+	}
+}
+
+// dialTrueNAS opens a WebSocket connection to TrueNAS and authenticates with
+// the given API key. The caller must close the returned connection.
+func dialTrueNAS(baseURL, apiKey string) (*websocket.Conn, error) {
+	conn, _, err := truenasDialer.Dial(truenasWSURL(baseURL), nil)
+	if err != nil {
+		return nil, fmt.Errorf("dial: %w", err)
+	}
+
+	req := wsRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "auth.login_with_api_key",
+		Params:  []interface{}{apiKey},
+	}
+	data, _ := json.Marshal(req)
+
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("auth send: %w", err)
+	}
+	conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("auth recv: %w", err)
+	}
+	var resp wsRPCResponse
+	if err := json.Unmarshal(msg, &resp); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("auth decode: %w", err)
+	}
+	if resp.Error != nil {
+		conn.Close()
+		return nil, fmt.Errorf("auth: %s", resp.Error.Message)
+	}
+	var ok bool
+	if err := json.Unmarshal(resp.Result, &ok); err != nil || !ok {
+		conn.Close()
+		return nil, fmt.Errorf("authentication rejected (invalid api_key)")
+	}
+	return conn, nil
+}
+
+// truenasCall sends a single JSON-RPC 2.0 request and decodes the result.
+// It skips any server notifications (messages without a matching id).
+func truenasCall(conn *websocket.Conn, id int, method string, params []interface{}, target interface{}) error {
+	req := wsRPCRequest{JSONRPC: "2.0", ID: id, Method: method, Params: params}
+	data, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Accept", "application/json")
-	resp, err := truenasClient.Do(req)
-	if err != nil {
-		return err
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		return fmt.Errorf("%s write: %w", method, err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-		return fmt.Errorf("upstream status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		conn.SetReadDeadline(deadline)
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			return fmt.Errorf("%s read: %w", method, err)
+		}
+		var resp wsRPCResponse
+		if err := json.Unmarshal(msg, &resp); err != nil || resp.ID != id {
+			continue
+		}
+		if resp.Error != nil {
+			return fmt.Errorf("%s: %s", method, resp.Error.Message)
+		}
+		return json.Unmarshal(resp.Result, target)
 	}
-	return json.NewDecoder(resp.Body).Decode(target)
 }
 
-// HandleTrueNASSCALEWidget proxies TrueNAS SCALE REST API (v2.0) calls,
-// fetching only the sections the client opted in to. Any single failing
-// section is returned as a "<section>_error" field rather than failing the
-// whole response, so a borked disk endpoint doesn't hide pool status.
+// queryParams returns the standard empty [filters, options] pair used by
+// TrueNAS query methods (pool.query, disk.query, etc.).
+func queryParams() []interface{} {
+	return []interface{}{[]interface{}{}, map[string]interface{}{}}
+}
+
+// HandleTrueNASSCALEWidget connects to TrueNAS SCALE via WebSocket JSON-RPC 2.0
+// and fetches only the sections the client opted in to. Any single failing
+// section is returned as a "<section>_error" field so the rest still render.
 func HandleTrueNASSCALEWidget(w http.ResponseWriter, r *http.Request) {
 	baseURL := strings.TrimRight(r.URL.Query().Get("url"), "/")
 	apiKey := r.URL.Query().Get("api_key")
@@ -539,86 +629,59 @@ func HandleTrueNASSCALEWidget(w http.ResponseWriter, r *http.Request) {
 	showDisks := r.URL.Query().Get("show_disks") != "false"
 	showBackups := r.URL.Query().Get("show_backups") != "false"
 
-	response := map[string]interface{}{}
-	var mu sync.Mutex
-	setField := func(key string, value interface{}) {
-		mu.Lock()
-		response[key] = value
-		mu.Unlock()
+	conn, err := dialTrueNAS(baseURL, apiKey)
+	if err != nil {
+		http.Error(w, "TrueNAS connect: "+err.Error(), http.StatusBadGateway)
+		return
 	}
+	defer conn.Close()
 
-	var wg sync.WaitGroup
+	response := map[string]interface{}{}
+	id := 2
 
 	if showSystem {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var raw map[string]interface{}
-			if err := fetchTrueNASJSON(baseURL+"/api/v2.0/system/info", apiKey, &raw); err != nil {
-				setField("system_error", err.Error())
-				return
-			}
-			setField("system", parseTrueNASSystem(raw))
-		}()
+		var raw map[string]interface{}
+		if err := truenasCall(conn, id, "system.info", []interface{}{}, &raw); err != nil {
+			response["system_error"] = err.Error()
+		} else {
+			response["system"] = parseTrueNASSystem(raw)
+		}
+		id++
 	}
 
 	if showPools {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var raw []map[string]interface{}
-			if err := fetchTrueNASJSON(baseURL+"/api/v2.0/pool", apiKey, &raw); err != nil {
-				setField("pools_error", err.Error())
-				return
-			}
-			setField("pools", parseTrueNASPools(raw))
-		}()
+		var raw []map[string]interface{}
+		if err := truenasCall(conn, id, "pool.query", queryParams(), &raw); err != nil {
+			response["pools_error"] = err.Error()
+		} else {
+			response["pools"] = parseTrueNASPools(raw)
+		}
+		id++
 	}
 
 	if showDisks {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var raw []map[string]interface{}
-			if err := fetchTrueNASJSON(baseURL+"/api/v2.0/disk", apiKey, &raw); err != nil {
-				setField("disks_error", err.Error())
-				return
-			}
-			setField("disks", parseTrueNASDisks(raw))
-		}()
+		var raw []map[string]interface{}
+		if err := truenasCall(conn, id, "disk.query", queryParams(), &raw); err != nil {
+			response["disks_error"] = err.Error()
+		} else {
+			response["disks"] = parseTrueNASDisks(raw)
+		}
+		id++
 	}
 
 	if showBackups {
-		// Fetch both cloud sync and rsync task lists in parallel. Either may
-		// fail independently (e.g., if the user doesn't have that feature
-		// configured) — we merge whatever came back rather than giving up.
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var cloudsync, rsync []map[string]interface{}
-			var cloudErr, rsyncErr error
-			var innerWG sync.WaitGroup
-			innerWG.Add(2)
-			go func() {
-				defer innerWG.Done()
-				cloudErr = fetchTrueNASJSON(baseURL+"/api/v2.0/cloudsync", apiKey, &cloudsync)
-			}()
-			go func() {
-				defer innerWG.Done()
-				rsyncErr = fetchTrueNASJSON(baseURL+"/api/v2.0/rsynctask", apiKey, &rsync)
-			}()
-			innerWG.Wait()
+		var cloudsync, rsync []map[string]interface{}
+		cloudErr := truenasCall(conn, id, "cloudsync.query", queryParams(), &cloudsync)
+		id++
+		rsyncErr := truenasCall(conn, id, "rsynctask.query", queryParams(), &rsync)
 
-			if cloudErr != nil && rsyncErr != nil {
-				setField("backups_error", fmt.Sprintf("cloudsync: %v; rsync: %v", cloudErr, rsyncErr))
-				return
-			}
-			backups := parseTrueNASBackups(cloudsync, rsync)
-			setField("backups", backups)
-		}()
+		if cloudErr != nil && rsyncErr != nil {
+			response["backups_error"] = fmt.Sprintf("cloudsync: %v; rsync: %v", cloudErr, rsyncErr)
+		} else {
+			response["backups"] = parseTrueNASBackups(cloudsync, rsync)
+		}
 	}
 
-	wg.Wait()
 	WriteJSON(w, response)
 }
 
