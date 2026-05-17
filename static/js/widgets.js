@@ -508,6 +508,10 @@ function initTrueNASWidget(widgetEl, config) {
             renderTrueNASWidget(widgetEl, contentEl, data);
         } catch (err) {
             contentEl.innerHTML = renderWidgetError('Unable to connect to TrueNAS', config.url);
+            const overallStatusEl = widgetEl.querySelector('.overall-status');
+            if (overallStatusEl) {
+                overallStatusEl.innerHTML = `<div class="overall-status-indicator status-down"></div>`;
+            }
         }
     }
 
