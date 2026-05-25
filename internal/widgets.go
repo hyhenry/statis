@@ -472,12 +472,33 @@ type truenasPool struct {
 }
 
 type truenasDisk struct {
-	Name        string `json:"name"`
-	Model       string `json:"model"`
-	Serial      string `json:"serial"`
-	SizeBytes   uint64 `json:"size_bytes"`
-	Type        string `json:"type"`
-	Temperature int    `json:"temperature,omitempty"`
+	Name         string             `json:"name"`
+	Model        string             `json:"model"`
+	Serial       string             `json:"serial"`
+	SizeBytes    uint64             `json:"size_bytes"`
+	Type         string             `json:"type"`
+	Temperature  int                `json:"temperature,omitempty"`
+	Bus          string             `json:"bus,omitempty"`
+	RotationRate int                `json:"rotation_rate,omitempty"`
+	SmartEnabled bool               `json:"smart_enabled"`
+	TempMin      *float64           `json:"temp_min,omitempty"`
+	TempMax      *float64           `json:"temp_max,omitempty"`
+	TempAvg      *float64           `json:"temp_avg,omitempty"`
+	TempAlerts   []truenasDiskAlert `json:"temp_alerts,omitempty"`
+}
+
+// truenasDiskAlert is a temperature alert associated with a specific disk.
+type truenasDiskAlert struct {
+	Level string `json:"level"`
+	Text  string `json:"text"`
+}
+
+// truenasTempStats holds the aggregated temperature statistics returned by
+// disk.temperature_agg. All fields are nullable (nil = no data).
+type truenasTempStats struct {
+	Min *float64 `json:"min"`
+	Max *float64 `json:"max"`
+	Avg *float64 `json:"avg"`
 }
 
 // truenasBackup is a unified view of a cloud sync or rsync task with its
@@ -660,13 +681,35 @@ func HandleTrueNASSCALEWidget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if showDisks {
-		var raw []map[string]interface{}
-		if err := truenasCall(conn, id, "disk.query", queryParams(), &raw); err != nil {
-			response["disks_error"] = err.Error()
-		} else {
-			response["disks"] = parseTrueNASDisks(raw)
-		}
+		var rawDisks []map[string]interface{}
+		diskErr := truenasCall(conn, id, "disk.query", queryParams(), &rawDisks)
 		id++
+
+		var tempAgg map[string]truenasTempStats
+		var rawAlerts []map[string]interface{}
+
+		if diskErr == nil && len(rawDisks) > 0 {
+			// Collect disk names for the batch temperature calls.
+			names := make([]string, 0, len(rawDisks))
+			for _, d := range rawDisks {
+				if n := getString(d, "name"); n != "" {
+					names = append(names, n)
+				}
+			}
+			if len(names) > 0 {
+				// Non-fatal: if these fail we just omit the extra data.
+				_ = truenasCall(conn, id, "disk.temperature_agg", []interface{}{names, 7}, &tempAgg)
+				id++
+				_ = truenasCall(conn, id, "disk.temperature_alerts", []interface{}{names}, &rawAlerts)
+				id++
+			}
+		}
+
+		if diskErr != nil {
+			response["disks_error"] = diskErr.Error()
+		} else {
+			response["disks"] = parseTrueNASDisks(rawDisks, tempAgg, rawAlerts)
+		}
 	}
 
 	if showBackups {
@@ -810,17 +853,54 @@ func parseScan(scan interface{}) (function, state string, errors uint64, endUnix
 	return
 }
 
-func parseTrueNASDisks(raw []map[string]interface{}) []truenasDisk {
+func parseTrueNASDisks(raw []map[string]interface{}, tempAgg map[string]truenasTempStats, rawAlerts []map[string]interface{}) []truenasDisk {
 	disks := make([]truenasDisk, 0, len(raw))
 	for _, d := range raw {
-		disks = append(disks, truenasDisk{
-			Name:        getString(d, "name"),
-			Model:       getString(d, "model"),
-			Serial:      getString(d, "serial"),
-			SizeBytes:   getUint64(d, "size"),
-			Type:        getString(d, "type"),
-			Temperature: int(getFloat(d, "temperature")),
-		})
+		name := getString(d, "name")
+		disk := truenasDisk{
+			Name:         name,
+			Model:        getString(d, "model"),
+			Serial:       getString(d, "serial"),
+			SizeBytes:    getUint64(d, "size"),
+			Type:         getString(d, "type"),
+			Temperature:  int(getFloat(d, "temperature")),
+			Bus:          getString(d, "bus"),
+			RotationRate: int(getFloat(d, "rotationrate")),
+			SmartEnabled: getBool(d, "togglesmart"),
+		}
+
+		// Merge 7-day temperature aggregates (nil when not available).
+		if stats, ok := tempAgg[name]; ok {
+			disk.TempMin = stats.Min
+			disk.TempMax = stats.Max
+			disk.TempAvg = stats.Avg
+		}
+
+		// Attach any temperature alerts for this disk. TrueNAS encodes the
+		// disk name in either args["disk"] or the deduplication key string.
+		for _, a := range rawAlerts {
+			level := getString(a, "level")
+			text := getString(a, "text")
+			if level == "" || text == "" {
+				continue
+			}
+			matched := false
+			if args, ok := a["args"].(map[string]interface{}); ok {
+				if getString(args, "disk") == name {
+					matched = true
+				}
+			}
+			if !matched {
+				if key := getString(a, "key"); key != "" && strings.Contains(key, name) {
+					matched = true
+				}
+			}
+			if matched {
+				disk.TempAlerts = append(disk.TempAlerts, truenasDiskAlert{Level: level, Text: text})
+			}
+		}
+
+		disks = append(disks, disk)
 	}
 	return disks
 }

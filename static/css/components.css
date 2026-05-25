@@ -533,22 +533,46 @@
 }
 
 .truenas-disk-list {
-    max-height: 240px;
+    max-height: 380px;
     overflow-y: auto;
 }
 
-.truenas-disk-row {
+/* Collapsible disk item — wraps the summary row + expandable detail panel */
+.truenas-disk-item {
+    border-bottom: var(--border-subtle);
+}
+
+.truenas-disk-item:last-child {
+    border-bottom: none;
+}
+
+/* Clickable summary row — same column layout as the old disk row + a toggle icon column */
+.truenas-disk-summary {
     display: grid;
-    grid-template-columns: minmax(60px, auto) 1fr max-content max-content;
+    grid-template-columns: 0.8rem minmax(60px, auto) 1fr max-content max-content;
     gap: 0.8rem;
     align-items: center;
     padding: 0.45rem 0;
-    border-bottom: var(--border-subtle);
     font-size: 1.2rem;
+    cursor: pointer;
+    user-select: none;
 }
 
-.truenas-disk-row:last-child {
-    border-bottom: none;
+.truenas-disk-summary:hover {
+    opacity: 0.85;
+}
+
+/* Rotating triangle — spins 90° when the panel is open */
+.truenas-disk-toggle {
+    font-size: 0.7rem;
+    color: var(--text-muted-light);
+    display: inline-block;
+    transition: transform 0.15s ease;
+    line-height: 1;
+}
+
+.truenas-disk-toggle.expanded {
+    transform: rotate(90deg);
 }
 
 .truenas-disk-name {
@@ -575,6 +599,56 @@
 .truenas-temp-danger {
     color: #e74c3c;
     font-weight: 600;
+}
+
+/* Expanded detail panel */
+.truenas-disk-detail {
+    display: none;
+    padding: 0.3rem 0 0.8rem 1.6rem;
+    font-size: 1.15rem;
+}
+
+/* Small uppercase label used above sub-sections in the detail panel */
+.truenas-detail-label {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted-light);
+    margin: 0.6rem 0 0.3rem;
+}
+
+/* 7-day temperature min/avg/max row */
+.truenas-temp-history {
+    display: flex;
+    gap: 1.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.truenas-temp-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+}
+
+.truenas-temp-stat-label {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted-light);
+}
+
+/* Per-disk temperature alert lines inside the detail panel */
+.truenas-disk-alert-item {
+    margin-top: 0.35rem;
+    font-size: 1.1rem;
+    color: #f39c12;
+}
+
+.truenas-disk-alert-item.level-critical,
+.truenas-disk-alert-item.level-error,
+.truenas-disk-alert-item.level-alert {
+    color: #e74c3c;
 }
 
 .truenas-backup-row {

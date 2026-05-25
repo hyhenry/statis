@@ -596,6 +596,10 @@ function renderTrueNASWidget(widgetEl, contentEl, data) {
     }
 
     contentEl.innerHTML = parts.length ? parts.join('') : renderWidgetInfo('No sections enabled.');
+
+    // Re-attach disk expand/collapse handlers after every render, restoring
+    // whichever disks were open before the refresh.
+    attachDiskToggles(widgetEl, contentEl);
 }
 
 function renderTrueNASSystem(sys) {
@@ -686,28 +690,113 @@ function formatRelativeTime(date) {
 }
 
 function renderTrueNASDisks(disks) {
-    const rows = disks.map(d => {
+    const items = disks.map(d => {
+        // Summary row — same four columns as before, plus a leading toggle icon.
         const tempClass = d.temperature >= 55 ? 'truenas-temp-danger'
             : d.temperature >= 45 ? 'truenas-temp-warn'
             : '';
         const tempStr = d.temperature ? `${d.temperature}°C` : '-';
+
+        // Detail panel — metadata key/value list.
+        let kvHtml = '';
+        if (d.serial)        kvHtml += `<dt>Serial</dt><dd>${escapeHtml(d.serial)}</dd>`;
+        if (d.bus)           kvHtml += `<dt>Bus</dt><dd>${escapeHtml(d.bus)}</dd>`;
+        const typeLabel = d.rotation_rate
+            ? `${escapeHtml(d.type || 'HDD')} · ${d.rotation_rate.toLocaleString()} RPM`
+            : escapeHtml(d.type || '-');
+        kvHtml += `<dt>Type</dt><dd>${typeLabel}</dd>`;
+
+        // 7-day temperature history (omitted if all three values are absent).
+        let tempHistHtml = '';
+        if (d.temp_min != null || d.temp_avg != null || d.temp_max != null) {
+            const fmt = v => v != null ? `${Math.round(v)}°C` : '—';
+            const maxClass = d.temp_max >= 55 ? 'truenas-temp-danger'
+                : d.temp_max >= 45 ? 'truenas-temp-warn'
+                : '';
+            tempHistHtml = `
+                <div class="truenas-detail-label">7-day temperature</div>
+                <div class="truenas-temp-history">
+                    <div class="truenas-temp-stat">
+                        <span class="truenas-temp-stat-label">min</span>
+                        <span>${fmt(d.temp_min)}</span>
+                    </div>
+                    <div class="truenas-temp-stat">
+                        <span class="truenas-temp-stat-label">avg</span>
+                        <span>${fmt(d.temp_avg)}</span>
+                    </div>
+                    <div class="truenas-temp-stat">
+                        <span class="truenas-temp-stat-label">max</span>
+                        <span class="${maxClass}">${fmt(d.temp_max)}</span>
+                    </div>
+                </div>`;
+        }
+
+        // Temperature alerts.
+        let alertsHtml = '';
+        if (d.temp_alerts && d.temp_alerts.length > 0) {
+            alertsHtml = d.temp_alerts.map(a => {
+                const cls = `level-${(a.level || '').toLowerCase()}`;
+                return `<div class="truenas-disk-alert-item ${cls}">⚠ ${escapeHtml(a.text)}</div>`;
+            }).join('');
+        }
+
         return `
-            <div class="truenas-disk-row">
-                <span class="truenas-disk-name">${escapeHtml(d.name)}</span>
-                <span class="truenas-disk-model">${escapeHtml(d.model || '')}</span>
-                <span class="truenas-disk-size">${escapeHtml(formatBytes(d.size_bytes))}</span>
-                <span class="truenas-disk-temp ${tempClass}">${escapeHtml(tempStr)}</span>
-            </div>
-        `;
+            <div class="truenas-disk-item" data-disk="${escapeHtml(d.name)}">
+                <div class="truenas-disk-summary">
+                    <span class="truenas-disk-toggle">&#9654;</span>
+                    <span class="truenas-disk-name">${escapeHtml(d.name)}</span>
+                    <span class="truenas-disk-model">${escapeHtml(d.model || '')}</span>
+                    <span class="truenas-disk-size">${formatBytes(d.size_bytes)}</span>
+                    <span class="truenas-disk-temp ${tempClass}">${escapeHtml(tempStr)}</span>
+                </div>
+                <div class="truenas-disk-detail">
+                    <dl class="truenas-kv">${kvHtml}</dl>
+                    ${tempHistHtml}
+                    ${alertsHtml}
+                </div>
+            </div>`;
     }).join('');
+
     return `
         <div class="truenas-section">
             <h5 class="truenas-section-title">Disks (${disks.length})</h5>
             <div class="truenas-disk-list">
-                ${disks.length ? rows : renderWidgetInfo('No disks found.')}
+                ${disks.length ? items : renderWidgetInfo('No disks found.')}
             </div>
-        </div>
-    `;
+        </div>`;
+}
+
+// Attaches click handlers to every .truenas-disk-item in contentEl and
+// restores whichever disks were expanded before the last render.  The set of
+// expanded disk names is stored on the widgetEl DOM node so it survives the
+// 60-second innerHTML refresh.
+function attachDiskToggles(widgetEl, contentEl) {
+    if (!widgetEl._expandedDisks) widgetEl._expandedDisks = new Set();
+    const expanded = widgetEl._expandedDisks;
+
+    contentEl.querySelectorAll('.truenas-disk-item').forEach(item => {
+        const name = item.dataset.disk;
+        const detail = item.querySelector('.truenas-disk-detail');
+        const toggle = item.querySelector('.truenas-disk-toggle');
+        if (!detail || !toggle) return;
+
+        // Restore state from before the refresh.
+        if (expanded.has(name)) {
+            detail.style.display = 'block';
+            toggle.classList.add('expanded');
+        }
+
+        item.querySelector('.truenas-disk-summary').addEventListener('click', () => {
+            const isOpen = detail.style.display === 'block';
+            detail.style.display = isOpen ? 'none' : 'block';
+            toggle.classList.toggle('expanded', !isOpen);
+            if (isOpen) {
+                expanded.delete(name);
+            } else {
+                expanded.add(name);
+            }
+        });
+    });
 }
 
 function renderTrueNASBackups(backups) {
